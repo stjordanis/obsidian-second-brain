@@ -1,41 +1,40 @@
 #!/usr/bin/env python3
-"""/notebooklm [topic] — vault-first NotebookLM workflow facilitator.
+"""/notebooklm [topic]: vault-first source-grounded research via Gemini File Search.
 
-NotebookLM (notebooklm.google.com) does source-grounded Q&A against sources you upload.
-This command makes it useful as a research tool inside the vault loop:
+Same shape as /research-deep: one command, one HTTP call, no browser. Uses Google's
+Gemini File Search API (generally available, $0.15/M tokens indexed, storage free).
 
-1. Scan the vault for notes related to the topic (same as /research-deep Phase 1).
-2. Bundle the top N notes as a single markdown text the user pastes into NotebookLM
-   as a "Pasted Text" source.
-3. Emit a structured prompt template the user runs against the notebook.
-4. Pause. User does the manual step in NotebookLM (open browser, paste source, ask).
-5. User pastes the response back (via the calling command).
-6. Save the response to `Research/NotebookLM/YYYY-MM-DD — <slug>.md` in AI-first format.
-7. Emit a propagation payload so the calling Claude can run /obsidian-save.
+Flow:
+  1. Scan the vault for notes related to the topic (Research/NotebookLM/ excluded).
+  2. Upload the top 12 most relevant notes to an ephemeral Gemini File Search store.
+  3. Ask Gemini (default gemini-2.5-pro) for a synthesis grounded against that store.
+  4. Write the AI-first synthesis to Research/NotebookLM/YYYY-MM-DD - <slug>.md.
+  5. Delete the File Search store.
+  6. Emit a propagation payload for /obsidian-save.
 
-Why not full API: NotebookLM API is beta-access only as of 2026-01 and Google Workspace
-gated. The pasted-source workflow works for every user.
-
-Modes:
-  --topic "..."         start a new notebook session (output bundle + prompt)
-  --save-response       finalize: read response from stdin, write the note, emit payload
+Cost per run: roughly $0.01 to $0.05 for a 12-note bundle.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shutil
 import sys
+import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 
-from .lib import vault
-from .lib.config import VAULT_PATH
+from google import genai
+from google.genai import types
+
+from .lib.config import NOTEBOOKLM_MODEL, VAULT_PATH, get_required
 
 VAULT_SCAN_DIRS = ["wiki", "Research", "Knowledge", "Projects", "Ideas"]
 MAX_BUNDLE_NOTES = 12
-MAX_CHARS_PER_NOTE = 2000
 NOTEBOOKLM_DIR = VAULT_PATH / "Research" / "NotebookLM"
 
 
@@ -77,153 +76,32 @@ def vault_scan(topic: str) -> list[dict]:
     return hits[:MAX_BUNDLE_NOTES]
 
 
-def build_bundle(topic: str, hits: list[dict]) -> str:
-    if not hits:
-        return f"# Vault baseline on: {topic}\n\n(Vault has no existing notes referencing this topic.)\n"
-    out = [f"# Vault baseline on: {topic}", ""]
-    out.append(
-        f"This is a bundle of the {len(hits)} most relevant vault notes on the topic, "
-        f"prepared as a single source for NotebookLM. Each section below is one vault note. "
-        f"Recency markers and wikilinks are preserved verbatim from the vault."
-    )
-    out.append("")
-    for h in hits:
-        try:
-            text = Path(h["abs_path"]).read_text(errors="ignore")[:MAX_CHARS_PER_NOTE]
-        except OSError:
-            continue
-        out.append("---")
-        out.append("")
-        out.append(f"## {h['path']}  (relevance score: {h['score']})")
-        out.append("")
-        out.append(text.strip())
-        out.append("")
-    return "\n".join(out)
-
-
 PROMPT_TEMPLATE = """\
-You are answering from the sources I pasted above. Topic: "{topic}".
+You are answering from the sources I have given you. Topic: "{topic}".
 
 Produce a synthesis with EXACTLY these sections:
 
-## Source summary (3-5 sentences)
-What do the pasted sources collectively say about this topic? Be specific. Cite source titles in [brackets].
+## Source summary (3 to 5 sentences)
+What do the sources collectively say about this topic? Be specific. Cite source titles in [brackets].
 
 ## Confirmed claims
-- [claim] — [which source(s) state it]
-- ...
+- [claim] (which source(s) state it)
 
 ## Contradictions or tensions across sources
 - [claim A in source X] vs [claim B in source Y]
-- ...
 
 ## Gaps in the sources
-What questions does the topic raise that the pasted sources don't answer?
 - [question]
-- ...
 
 ## Recommended next reads or angles
-Where would a vault writer go next to fill the gaps?
 - [angle / source / query]
-- ...
 
 ## Confidence on the synthesis
-high | medium | low — and one sentence on why.
+high | medium | low. One sentence on why.
 
 Cite source titles in brackets wherever a claim originates. Do not invent facts beyond the sources.
+Do not use em-dashes in your response. Use periods, commas, parentheses, or " - " (hyphen with spaces) instead.
 """
-
-
-def emit_start(topic: str) -> int:
-    hits = vault_scan(topic)
-    bundle = build_bundle(topic, hits)
-
-    NOTEBOOKLM_DIR.mkdir(parents=True, exist_ok=True)
-    today = datetime.now().strftime("%Y-%m-%d")
-    slug = slugify(topic)
-    bundle_path = NOTEBOOKLM_DIR / f"{today} — {slug} — bundle.md"
-    bundle_path.write_text(bundle)
-
-    payload = {
-        "topic": topic,
-        "today": today,
-        "slug": slug,
-        "bundle_path": str(bundle_path),
-        "vault_baseline_notes": [h["path"] for h in hits],
-        "vault_baseline_count": len(hits),
-    }
-
-    print("=== NOTEBOOKLM BUNDLE READY ===")
-    print()
-    print(f"Topic: {topic}")
-    print(f"Vault baseline notes: {len(hits)}")
-    print(f"Bundle saved to: {bundle_path}")
-    print()
-    print("=== USER MANUAL STEPS ===")
-    print()
-    print("1. Open notebooklm.google.com (sign in to personal Google account)")
-    print("2. Create a new notebook (or open an existing one for this topic)")
-    print("3. Click 'Add source' -> 'Paste text' and paste the contents of:")
-    print(f"     {bundle_path}")
-    print("4. Optionally add other sources (PDFs, URLs, Google Docs)")
-    print("5. Once sources are added, paste this prompt into the chat:")
-    print()
-    print("--- prompt start ---")
-    print(PROMPT_TEMPLATE.format(topic=topic))
-    print("--- prompt end ---")
-    print()
-    print("6. When NotebookLM responds, copy the full response.")
-    print("7. Run the next phase to save it to the vault:")
-    print()
-    print(f"   uv run -m scripts.research.notebooklm --save-response \\")
-    print(f"     --topic \"{topic}\" --slug \"{slug}\"")
-    print()
-    print("   (When prompted, paste the response and press Ctrl-D.)")
-    print()
-    print("<<<NOTEBOOKLM_BUNDLE_PAYLOAD>>>")
-    print(json.dumps(payload, indent=2))
-    print("<<<NOTEBOOKLM_BUNDLE_PAYLOAD>>>")
-    return 0
-
-
-def save_response(topic: str, slug: str | None) -> int:
-    if not slug:
-        slug = slugify(topic)
-    today = datetime.now().strftime("%Y-%m-%d")
-    note_path = NOTEBOOKLM_DIR / f"{today} — {slug}.md"
-
-    print("Paste the NotebookLM response below. Press Ctrl-D when done.", file=sys.stderr)
-    response = sys.stdin.read().strip()
-    if not response:
-        print("ERROR: empty response", file=sys.stderr)
-        return 1
-
-    # Build the AI-first note
-    hits = vault_scan(topic)
-    body = NOTEBOOKLM_NOTE_TEMPLATE.format(
-        date=today,
-        topic=topic,
-        slug=slug,
-        baseline_count=len(hits),
-        baseline_links="\n".join(f"- [[{h['path']}]]" for h in hits) or "- (none)",
-        response=response,
-    )
-    NOTEBOOKLM_DIR.mkdir(parents=True, exist_ok=True)
-    note_path.write_text(body)
-
-    payload = {
-        "topic": topic,
-        "today": today,
-        "slug": slug,
-        "saved_note": str(note_path.relative_to(VAULT_PATH)),
-        "vault_baseline_notes": [h["path"] for h in hits],
-    }
-
-    print(f"\n=== SAVED ===\n{note_path}\n")
-    print("<<<NOTEBOOKLM_PROPAGATION_PAYLOAD>>>")
-    print(json.dumps(payload, indent=2))
-    print("<<<NOTEBOOKLM_PROPAGATION_PAYLOAD>>>")
-    return 0
 
 
 NOTEBOOKLM_NOTE_TEMPLATE = """---
@@ -235,44 +113,153 @@ tags:
   - source-grounded
 ai-first: true
 confidence: stated
+model: {model}
 ---
 
 # {topic}: NotebookLM synthesis ({date})
 
 ## For future Claude
 
-NotebookLM source-grounded synthesis on "{topic}". Sources included the vault baseline bundle ({baseline_count} notes) plus any external sources Eugeniu added manually in NotebookLM. Output cites source titles in brackets where the underlying NotebookLM run included them. This is a parallel research track to `/research-deep` (Perplexity-based). NotebookLM is grounded in the user's own sources, not the open web. Confidence: stated (NotebookLM is reliable on the sources you give it; less reliable on synthesis breadth).
+Source-grounded synthesis on "{topic}" via Gemini File Search (model: {model}). Vault baseline: {baseline_count} notes from the vault scan, uploaded as grounded sources. Output cites source titles where the model included them. This is the parallel research track to `/research-deep` (Perplexity-based, open-web); this one is grounded in the user's own sources, not the open web. Confidence: stated (grounded retrieval is reliable on the sources you give it; less reliable on synthesis breadth).
 
 ## Vault baseline that fed this notebook
 
 {baseline_links}
 
-## NotebookLM response (verbatim)
+## Synthesis ({model}, grounded)
 
 {response}
 
 ## Related
 
-- [[NotebookLM]] - the tool
-- [[Research/Deep/]] - the parallel Perplexity-based research track
+- [[Research/Deep/]] (the parallel Perplexity-based research track)
 """
+
+
+def safe_display_name(path: str) -> str:
+    """Strip non-ASCII so display_name survives HTTP header encoding."""
+    s = path.replace("—", " - ").replace("–", "-")
+    s = s.encode("ascii", "replace").decode("ascii")
+    return s[:200]
+
+
+def upload_and_wait(client: genai.Client, store_name: str, hit: dict) -> None:
+    """Upload one file, then poll the operation until it finishes.
+
+    Copies the source file to a temp path with an ASCII-safe name first. The Gemini
+    SDK puts the basename into a Content-Disposition header, and httpx rejects
+    non-ASCII headers (vault filenames often have em-dashes from /research-deep).
+    """
+    with tempfile.NamedTemporaryFile(prefix="nblm-", suffix=".md", delete=False) as tmp:
+        tmp_path = tmp.name
+    try:
+        shutil.copyfile(hit["abs_path"], tmp_path)
+        operation = client.file_search_stores.upload_to_file_search_store(
+            file=tmp_path,
+            file_search_store_name=store_name,
+            config={"display_name": safe_display_name(hit["path"])},
+        )
+        deadline = time.time() + 300
+        while not operation.done:
+            if time.time() > deadline:
+                raise TimeoutError(f"upload timed out after 300s: {hit['path']}")
+            time.sleep(5)
+            operation = client.operations.get(operation)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+
+def run(topic: str) -> int:
+    api_key = get_required("GEMINI_API_KEY")
+    hits = vault_scan(topic)
+    if not hits:
+        print(f"ERROR: no vault notes match topic '{topic}'.", file=sys.stderr)
+        return 1
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    slug = slugify(topic)
+
+    print(f"=== /notebooklm: {topic} ===", file=sys.stderr)
+    print(f"Vault baseline: {len(hits)} notes", file=sys.stderr)
+    print(f"Model: {NOTEBOOKLM_MODEL}", file=sys.stderr)
+
+    client = genai.Client(api_key=api_key)
+
+    print("Creating Gemini File Search store...", file=sys.stderr)
+    store = client.file_search_stores.create(
+        config={
+            "display_name": f"vault-{slug}-{today}",
+        },
+    )
+
+    response_text = ""
+    try:
+        for i, h in enumerate(hits, 1):
+            print(f"  [{i}/{len(hits)}] uploading {h['path']}", file=sys.stderr)
+            upload_and_wait(client, store.name, h)
+
+        print("Asking Gemini, grounded against the uploaded sources...", file=sys.stderr)
+        resp = client.models.generate_content(
+            model=NOTEBOOKLM_MODEL,
+            contents=PROMPT_TEMPLATE.format(topic=topic),
+            config=types.GenerateContentConfig(
+                tools=[
+                    types.Tool(
+                        file_search=types.FileSearch(
+                            file_search_store_names=[store.name],
+                        ),
+                    )
+                ],
+            ),
+        )
+        response_text = resp.text or ""
+        if not response_text.strip():
+            print("ERROR: Gemini returned an empty response.", file=sys.stderr)
+            return 1
+    finally:
+        print("Deleting File Search store...", file=sys.stderr)
+        try:
+            client.file_search_stores.delete(name=store.name, config={"force": True})
+        except Exception as e:
+            print(f"WARNING: failed to delete store {store.name}: {e}", file=sys.stderr)
+
+    NOTEBOOKLM_DIR.mkdir(parents=True, exist_ok=True)
+    note_path = NOTEBOOKLM_DIR / f"{today} - {slug}.md"
+    body = NOTEBOOKLM_NOTE_TEMPLATE.format(
+        date=today,
+        topic=topic,
+        slug=slug,
+        model=NOTEBOOKLM_MODEL,
+        baseline_count=len(hits),
+        baseline_links="\n".join(f"- [[{h['path']}]]" for h in hits),
+        response=response_text,
+    )
+    note_path.write_text(body)
+
+    payload = {
+        "topic": topic,
+        "today": today,
+        "slug": slug,
+        "saved_note": str(note_path.relative_to(VAULT_PATH)),
+        "vault_baseline_notes": [h["path"] for h in hits],
+        "model": NOTEBOOKLM_MODEL,
+    }
+
+    print(f"\n=== SAVED ===\n{note_path}\n")
+    print("<<<NOTEBOOKLM_PROPAGATION_PAYLOAD>>>")
+    print(json.dumps(payload, indent=2))
+    print("<<<NOTEBOOKLM_PROPAGATION_PAYLOAD>>>")
+    return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--topic", help="topic to research")
-    parser.add_argument("--save-response", action="store_true", help="finalize: save response from stdin")
-    parser.add_argument("--slug", help="slug (only with --save-response)")
+    parser.add_argument("--topic", required=True, help="topic to research")
     args = parser.parse_args()
-
-    if not args.topic:
-        print("ERROR: --topic required", file=sys.stderr)
-        return 2
-
-    if args.save_response:
-        return save_response(args.topic, args.slug)
-
-    return emit_start(args.topic)
+    return run(args.topic)
 
 
 if __name__ == "__main__":

@@ -1,57 +1,48 @@
 ---
-description: Vault-first NotebookLM workflow — bundle vault notes as a source, prompt template, capture response. The source-grounded parallel to /research-deep (Perplexity-based, open-web).
+description: Vault-first source-grounded research via Gemini File Search. One command, no browser. The grounded parallel to /research-deep (which is open-web via Perplexity).
 category: research
-triggers_en: ["notebooklm", "research grounded", "ground research in vault", "ask my notebook"]
+triggers_en: ["notebooklm", "research grounded", "ground research in vault", "ask my notebook", "source-grounded research"]
 ---
 
 Use the obsidian-second-brain skill. Execute `/notebooklm [topic]`:
 
-1. Resolve the topic from the user's argument. If no topic, ask: "What topic for NotebookLM research?"
+1. Resolve the topic from the user's argument. If no topic, ask: "What topic for source-grounded research?"
 
 2. Run the Python command from the repo root (`~/Projects/personal/obsidian-second-brain/`):
    ```bash
    uv run -m scripts.research.notebooklm --topic "<topic>"
    ```
 
-3. The script does the vault scan (same logic as `/research-deep` Phase 1), bundles the top 12 most relevant vault notes into a single markdown source file at `Research/NotebookLM/YYYY-MM-DD — <slug> — bundle.md`, prints a structured prompt template, and emits a `<<<NOTEBOOKLM_BUNDLE_PAYLOAD>>>` JSON block.
+3. The script does the whole flow end-to-end:
+   - Scans the vault for the top 12 relevant notes (same shape as `/research-deep` Phase 1).
+   - Uploads them to a fresh Gemini File Search store.
+   - Asks Gemini (default `gemini-2.5-pro`, override via `NOTEBOOKLM_MODEL` env) for a synthesis grounded against those sources.
+   - Writes the AI-first synthesis to `Research/NotebookLM/YYYY-MM-DD - <slug>.md`.
+   - Deletes the File Search store so nothing is left behind.
+   - Emits a `<<<NOTEBOOKLM_PROPAGATION_PAYLOAD>>>` JSON block.
 
-4. **Walk the user through the manual NotebookLM step** (NotebookLM has no full programmatic API as of 2026-01 — workspace-gated beta only). Surface these steps verbatim:
-   - Open `notebooklm.google.com` (personal Google account).
-   - Create a new notebook (or reuse one if relevant).
-   - Click "Add source" -> "Paste text" and paste the contents of the bundle file the script printed.
-   - Optionally add PDFs, web URLs, Google Docs as additional sources.
-   - Paste the structured prompt the script printed into the NotebookLM chat box.
-   - Wait for the response.
-   - Copy the full response.
-
-5. When the user pastes the response back into the chat, run:
-   ```bash
-   uv run -m scripts.research.notebooklm --save-response --topic "<topic>" --slug "<slug-from-payload>"
-   ```
-   Feed the user's response into stdin. The script writes the synthesis to `Research/NotebookLM/YYYY-MM-DD — <slug>.md` in AI-first format and emits a `<<<NOTEBOOKLM_PROPAGATION_PAYLOAD>>>` JSON block.
-
-6. **After save: do the propagation step.** Same flow as `/research-deep`:
+4. **After save, do the propagation step.** Same flow as `/research-deep`:
    - Parse the propagation payload.
    - Read the saved synthesis at `saved_note`.
    - Treat the synthesis as the "conversation context" input to `/obsidian-save`.
    - Run the standard `/obsidian-save` flow: spawn parallel subagents (People, Projects, Tasks, Decisions, Ideas) and update vault notes per any "Recommended next reads or angles" bullets if they map to entities or projects.
    - Link the new synthesis note from today's daily note.
 
-7. Report back to the user: "Saved [[YYYY-MM-DD — <slug>]] to Research/NotebookLM/. Linked from today's daily note. Updated [[X]], created [[Y]]."
+5. Report back to the user: "Saved [[YYYY-MM-DD - <slug>]] to Research/NotebookLM/. Linked from today's daily note. Updated [[X]], created [[Y]]."
 
-8. Plain English triggers: "notebooklm this", "ask my notebook about X", "ground a research on X using my vault", "source-grounded research on X".
+6. Plain English triggers: "notebooklm this", "ground research on X using my vault", "source-grounded research on X", "ask my own notes about X".
 
-9. When to choose `/notebooklm` over `/research-deep`:
+7. When to choose `/notebooklm` over `/research-deep`:
    - `/research-deep` (Perplexity + Grok): when you want OPEN-WEB + X-discourse coverage. Cost: $0.20-0.80.
-   - `/notebooklm` (Google source-grounded): when you want answers GROUNDED IN your own sources (vault, papers, PDFs). Cost: ~$0 (uses your free NotebookLM access).
-   - Run both for a topic when the cost+time is worth it. The web view + the grounded view rarely contradict, and the contradictions are where the insight is.
+   - `/notebooklm` (Gemini File Search): when you want answers GROUNDED IN your own vault. Cost: ~$0.01-0.05.
+   - Run both for high-value topics. The web view and the grounded view rarely contradict, and the contradictions are where the insight is.
 
-10. If the user has no Google account or doesn't want to use NotebookLM, the bundle file alone is still useful — it's a curated context dump they can feed to any other tool.
+8. Configuration: requires `GEMINI_API_KEY` in `~/.config/obsidian-second-brain/.env`. Get one free at https://aistudio.google.com/apikey. Optional `NOTEBOOKLM_MODEL` override (default `gemini-2.5-pro`).
 
 ---
 
-**AI-first rule:** Every note created or updated by this command MUST follow `references/ai-first-rules.md`. The saved synthesis at `Research/NotebookLM/YYYY-MM-DD — <slug>.md` follows the template baked into the script (preamble, frontmatter, vault-baseline links, response verbatim). Do not strip those.
+**AI-first rule:** Every note created or updated by this command MUST follow `references/ai-first-rules.md`. The saved synthesis at `Research/NotebookLM/YYYY-MM-DD - <slug>.md` follows the template baked into the script (preamble, frontmatter, vault-baseline links, response verbatim). Do not strip those.
 
-**Why a bundle file:** NotebookLM accepts "paste text" sources up to roughly 500K characters per source. The bundle is small enough to paste, large enough to be useful (12 notes × ~2K chars = ~24K chars, well within limits). If a topic needs more, the user can paste multiple bundles or run the command multiple times with refined topics.
+**Why Gemini File Search and not the browser:** NotebookLM has no public API for personal Google accounts. Gemini File Search (generally available, plain API key, same Gemini model family) gives the same architectural shape: source-grounded retrieval, multi-document context, citation-style synthesis. One HTTP call, no manual paste step.
 
-**Cost:** ~$0 in API spend. NotebookLM is free (with Google account). The vault scan is local. The script costs nothing.
+**Cost:** $0.15 per million tokens indexed, storage free, generation at standard Gemini token rates. For a 12-note vault bundle (~30K tokens), expect $0.01-0.05 per run.

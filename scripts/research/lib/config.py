@@ -27,11 +27,13 @@ def get_optional(name: str, default: str = "") -> str:
 
 XAI_API_KEY = lambda: get_required("XAI_API_KEY")
 PERPLEXITY_API_KEY = lambda: get_required("PERPLEXITY_API_KEY")
+GEMINI_API_KEY = lambda: get_required("GEMINI_API_KEY")
 YOUTUBE_API_KEY = lambda: get_optional("YOUTUBE_API_KEY", "")
 
 GROK_MODEL = get_optional("GROK_MODEL", "grok-4")
 PERPLEXITY_RESEARCH_MODEL = get_optional("PERPLEXITY_RESEARCH_MODEL", "sonar-pro")
 PERPLEXITY_DEEP_MODEL = get_optional("PERPLEXITY_DEEP_MODEL", "sonar-deep-research")
+NOTEBOOKLM_MODEL = get_optional("NOTEBOOKLM_MODEL", "gemini-2.5-flash")
 
 VAULT_PATH = Path.home() / "Projects" / "personal" / "obsinian" / "Eugeniu's Vault"
 USAGE_LOG = Path.home() / ".research-toolkit" / "usage.log"
