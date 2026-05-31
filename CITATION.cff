@@ -21,7 +21,7 @@ type: software
 license: MIT
 repository-code: "https://github.com/eugeniughelbur/obsidian-second-brain"
 url: "https://github.com/eugeniughelbur/obsidian-second-brain"
-version: "0.9.0"
+version: "0.10.0"
 date-released: "2026-05-31"
 keywords:
   - claude-code

@@ -48,8 +48,8 @@
 </p>
 
 <p align="center">
-  <strong>v0.9 (May 2026):</strong> <code>/research</code> and <code>/research-deep</code> now run with <strong>no API keys</strong> - free, key-less sources with Claude doing the synthesis.<br/>
-  <em>Plus Google Calendar commands, anti-hallucination guards, and the first automated tests + CI.</em><br/>
+  <strong>v0.10 - The Architect (May 2026):</strong> new <code>/obsidian-architect</code> scans a codebase and writes maintained architecture notes into your vault - refreshable, never clobbering your edits.<br/>
+  <em>Plus free key-less research, Google Calendar commands, anti-hallucination guards, and tests + CI.</em><br/>
   <a href="CHANGELOG.md">See the changelog &rarr;</a>
 </p>
 

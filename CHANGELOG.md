@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-31 - The Architect
+
 ### Added
 
 - **`/obsidian-architect` - scan a codebase into maintained architecture notes.** A deterministic scanner (`scripts/architect_scan.py`, stdlib-only) reports the stack, proposed modules, dependencies, entry points, and git commit; Claude then synthesizes an overview (with a Mermaid diagram and inferred personas), one note per core module, and a key-decisions note (fed by `mine_commit_decisions.py`), written under `Projects/<name>/Architecture/` as AI-first notes (`type: architecture-overview` + `type: architecture-module`). Re-running refreshes in place via **sentinel markers** (`<!-- @generated -->` / `<!-- @user -->`) that update only generated blocks and never overwrite hand-edits - a reusable write primitive now documented in `references/write-rules.md`. A lean v1 (one scanner + one command, not the source fork's 27-module suite). For the builder-heavy audience: code projects documented in the same brain as ideas and decisions. (FORK_INSIGHTS.md #20, #21, #22, #25.)

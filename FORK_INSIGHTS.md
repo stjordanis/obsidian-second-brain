@@ -2,7 +2,24 @@
 
 Analysis date: 2026-05-30. Repo at analysis time: 1,462 stars, 166 forks (167 returned by the GitHub API).
 
-This is a roadmap doc, not a spec. It captures what every diverging fork built, ranked into 50 concrete additions for the upstream repo. Items are tagged P0 (highest-ROI quick win), P1 (strong), P2 (strategic). Each names the fork that proved it so the implementation can be cross-referenced against real code.
+This is a roadmap doc, not a spec. It captures what every diverging fork built, ranked into 50 concrete additions for the upstream repo. Items are tagged P0 (highest-ROI quick win), P1 (strong), P2 (strategic).
+
+## Build status (2026-05-31) - project complete
+
+Shipped ~32 of the 50 across PRs #45-55, in releases v0.9.0 and v0.10.0 ("The Architect"). Every P0 landed. Highlights: first tests + CI, anti-fabrication/false-absence guards, free key-less research mode, Google Calendar commands, `/obsidian-recurring`, calendar reconciliation, `/vault-deep-synthesis`, `/idea-discovery`, `/obsidian-panel`, the Codex executable runner, the commit-decisions miner, the substitution-character CI gate, sentinel-safe regeneration, and `/obsidian-architect` (codebase -> vault docs). Command count: 43.
+
+**Won't do (intentional, not backlog).** The remaining items were evaluated and consciously declined - keeping the skill lean beats covering every fork idea:
+
+- **Niche workflow commands** (`/obsidian-proposal`, `/obsidian-event`, `/obsidian-1on1`, `/obsidian-launch-block`) - profession-specific (sales, events, teaching, course launches); belong in domain forks per `ECOSYSTEM.md`, not the general skill.
+- **TS Obsidian plugins** (companion status, daily auto-open) - cannot be built or tested in this environment, and rated low portability (hardcoded to a personal machine's launchd stamps and vault paths). Shipping untested plugin code to a public repo is irresponsible.
+- **launchd review cadence** (daily/weekly/monthly/quarterly/yearly) - personal scheduling infra, machine-specific; the `claude -p` headless pattern and opt-in bg-agent already cover the general need.
+- **`/obsidian-dashboard`** - depends on the Dataview/Tasks plugins and overlaps existing commands.
+- **`/obsidian-normalize`** - exists to migrate a large legacy human-note corpus; the parent is AI-first from the start, so little to normalize.
+- **Nushell installers** - cannot test Nushell here; the bash installers + cross-platform fixes cover the need.
+- **Chinese README (i18n)** - ongoing translation-drift maintenance burden for a solo maintainer.
+- **`/obsidian-roadmap`, repomix integration** - folded into or deferred from the lean `/obsidian-architect` v1; revisit only if the architect grows.
+
+If any of these is wanted later, it is a deliberate new decision, not an oversight.
 
 ## Method
 
