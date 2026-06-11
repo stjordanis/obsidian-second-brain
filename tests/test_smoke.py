@@ -115,6 +115,30 @@ def test_substitution_check_flags_prose_em_dash(tmp_path):
     assert passed.returncode == 0, passed.stdout
 
 
+def test_health_normalizes_dashes_in_links(tmp_path):
+    """Regression for #63: a wikilink written with a regular hyphen must resolve
+    against a filename written with an em-dash (the #31 behavior). The non-ASCII
+    sweep once rewrote _normalize_dashes()'s operands into ASCII hyphens, turning
+    it into a no-op; this locks the behavior so an automated pass cannot silently
+    undo it again. Em-dash built from its code point so this source stays ASCII."""
+    em = "\u2014"
+    (tmp_path / f"2026-05-22 {em} Learnings Review.md").write_text(
+        "---\ntype: concept\n---\n# Learnings Review\n\nBack to [[Home]].\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "Home.md").write_text(
+        "# Home\n\nSee [[2026-05-22 - Learnings Review]].\n", encoding="utf-8"
+    )
+    result = subprocess.run(
+        [sys.executable, "scripts/vault_health.py", "--path", str(tmp_path), "--json"],
+        cwd=REPO_ROOT, check=False, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert '"broken_link"' not in result.stdout, (
+        "hyphen-written link to em-dash filename was flagged broken:\n" + result.stdout
+    )
+
+
 def test_architect_scan_emits_manifest(tmp_path):
     """architect_scan.py must produce a JSON manifest with the expected shape
     on a minimal project (no network, no install)."""

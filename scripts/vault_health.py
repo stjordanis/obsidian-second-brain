@@ -218,6 +218,11 @@ def check_empty_folders(vault: Path) -> list:
     return issues
 
 
+# Built from code points so the source stays ASCII and the non-ASCII sweep
+# (scripts/sweep_non_ascii.py) can never rewrite these operands again (#63).
+_EM_DASH, _EN_DASH = "\u2014", "\u2013"
+
+
 def _normalize_dashes(s: str) -> str:
     """Convert em-dash (U+2014) and en-dash (U+2013) to a regular hyphen.
 
@@ -226,7 +231,7 @@ def _normalize_dashes(s: str) -> str:
     note with a regular hyphen (`[[2026-05-22 - Learnings Review]]`) should
     still resolve. Normalize both sides before comparison.
     """
-    return s.replace("-", "-").replace("-", "-")
+    return s.replace(_EM_DASH, "-").replace(_EN_DASH, "-")
 
 
 def check_broken_links(notes: dict, vault: Path) -> list:
