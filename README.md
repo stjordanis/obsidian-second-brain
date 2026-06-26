@@ -594,9 +594,9 @@ bash scripts/build.sh --platform codex-cli   # or gemini-cli, or opencode
 cp -R dist/codex-cli/. /path/to/your/vault/   # or .gemini-cli / .opencode/
 ```
 
-Then start your CLI from the vault root. Each build produces a platform-specific dispatcher (`AGENTS.md` for Codex / OpenCode, `GEMINI.md` for Gemini) with an **auto-generated routing table** mapping natural-language triggers to command files under `.codex/commands/` (or `.gemini/`, `.opencode/`).
+Then start your CLI from the vault root.
 
-Codex has no native slash-command runtime, so to run a command by name there, install the wrappers: `bash scripts/install-codex-wrappers.sh` creates one shim per command in `~/.codex/bin/` (each delegating to `scripts/run-command.sh`, which wraps the command into a `codex exec` prompt). Use `scripts/run-command.sh --print <command>` to preview the assembled prompt without running it.
+The **Codex build emits native [Codex Agent Skills](https://developers.openai.com/codex/skills)**: one skill per command under `.agents/skills/<name>/SKILL.md`. Codex discovers them automatically with progressive disclosure (only each skill's name + description load until it's selected), and they run **in your current session** - invoke one with `$<name>`, pick it from `/skills`, or just describe the task and let Codex match it implicitly. `AGENTS.md` stays as a thin always-on manual (vault conventions + the AI-first rule); there is no routing table to maintain because the skill list is the router. The Gemini / OpenCode builds still emit a `GEMINI.md` / `AGENTS.md` dispatcher with an auto-generated routing table to command files under `.gemini/` / `.opencode/`.
 
 Run `bash scripts/build.sh` with no arguments to build all four platforms at once. See [`dist/<platform>/INSTALL.md`](scripts/build.sh) after building for platform-specific notes.
 

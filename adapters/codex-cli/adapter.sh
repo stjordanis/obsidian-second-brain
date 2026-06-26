@@ -2,75 +2,77 @@
 # =============================================================================
 # adapters/codex-cli/adapter.sh - OpenAI Codex CLI platform adapter
 # =============================================================================
-# Codex CLI reads AGENTS.md at the project (or vault) root for its operating
-# manual. There is no native slash-command system, so we emit a dispatcher
-# table in AGENTS.md that maps natural-language triggers to command files
-# under .codex/commands/.
+# Codex CLI ships native Agent Skills (since Dec 2025): a skill is a directory
+# under `.agents/skills/<name>/` with a `SKILL.md` (name + description
+# frontmatter + instructions). Codex loads only each skill's name/description
+# until it selects one (progressive disclosure), then runs it IN-SESSION - the
+# agent invokes it with `$<name>`, `/skills`, or implicitly by description.
+#
+# We therefore emit one native skill per command. AGENTS.md stays as a thin
+# always-on operating manual (AI-first rule + how skills work); it no longer
+# carries a giant routing table, because Codex discovers skills itself.
+#
+# This replaces the previous AGENTS.md-routing-table + `codex exec` wrapper
+# design, which had no session continuity, no native skill discovery, ambiguous
+# write permissions, and per-command startup overhead.
 # =============================================================================
 
 CODEX_PLATFORM="codex-cli"
 CODEX_DIR="codex"
+CODEX_SKILLS_DIR=".agents/skills"
 CODEX_DISPATCHER="AGENTS.md"
 
 adapter_build() {
   local src="$1" dst="$2"
 
   _codex_emit_dispatcher "$src" "$dst"
-  _codex_translate_commands "$src/commands" "$dst/.${CODEX_DIR}/commands"
+  _codex_emit_skills "$src/commands" "$dst/$CODEX_SKILLS_DIR"
   _codex_copy_references "$src/references" "$dst/.${CODEX_DIR}/references"
   _codex_copy_scripts "$src/scripts" "$dst/.${CODEX_DIR}/scripts"
   _codex_emit_install_hint "$dst"
 }
 
-# Emit AGENTS.md at the dist root. Header + auto-generated routing table
-# (one row per command, parsed from frontmatter description:).
+# Emit AGENTS.md at the dist root. Thin always-on manual - no routing table,
+# because Codex's native skill discovery (progressive disclosure) handles
+# routing. We just tell the agent the skills exist and the AI-first rule.
 _codex_emit_dispatcher() {
   local src="$1" dst="$2"
   local out="$dst/$CODEX_DISPATCHER"
+  local count=0 f
+  for f in "$src"/commands/*.md; do
+    [[ -f "$f" ]] || continue
+    should_include "$f" "$CODEX_PLATFORM" && count=$((count + 1))
+  done
 
   {
-    cat <<'EOF'
+    cat <<EOF
 # Obsidian Second Brain - Codex CLI Operating Manual
 
-This vault runs the **obsidian-second-brain** skill. The skill ships a set of
-*commands*: each one is a multi-step instruction file that you (the Codex
-agent) should follow when the user's request matches its trigger phrase.
+This vault runs the **obsidian-second-brain** skill as ${count} native Codex
+**Agent Skills** under \`.agents/skills/\`. Codex discovers them automatically:
+each skill's name and description are always visible, and the full instructions
+load only when a skill is selected (progressive disclosure).
 
 ## How to operate
 
-1. Read `_CLAUDE.md` in the vault root, if it exists, to learn the user's
+1. Read \`_CLAUDE.md\` in the vault root, if it exists, to learn the user's
    vault conventions (folder map, daily note format, naming).
-2. When the user's request matches a trigger in the tables below, read the
-   matching file under `.codex/commands/<name>.md` and follow its
-   instructions step by step.
-3. Treat the AI-first vault rule (`references/ai-first-rules.md`) as
-   non-negotiable for every note you write: `## For future Claude` preamble,
-   rich frontmatter (`type`, `date`, `tags`, `ai-first: true`), `[[wikilinks]]`
-   for every person/project/concept, recency markers per external claim,
-   sources verbatim, confidence levels where applicable.
-4. Do not invent commands. If no command matches, ask the user what they
-   want or fall back to plain natural-language help.
-
-## Command routing tables (grouped by category)
-EOF
-
-    emit_routing_table_grouped "$src/commands" "$CODEX_PLATFORM" ".codex/commands"
-    emit_trigger_reference     "$src/commands" "$CODEX_PLATFORM"
-
-    cat <<'EOF'
-
-## Trigger conventions
-
-Each command file has a leading paragraph that documents its trigger phrases
-in plain English. Treat those triggers as primary; the slash-form `/name` is
-also accepted if the user types it.
+2. When the user's request matches a skill, invoke it - by \`\$<skill-name>\`,
+   via \`/skills\`, or let Codex select it implicitly from its description.
+   You do not need a routing table here; the skill list is the router.
+3. Treat the AI-first vault rule (\`.codex/references/ai-first-rules.md\`) as
+   non-negotiable for every note you write: \`## For future Claude\` preamble,
+   rich frontmatter (\`type\`, \`date\`, \`tags\`, \`ai-first: true\`),
+   \`[[wikilinks]]\` for every person/project/concept, recency markers per
+   external claim, sources verbatim, confidence levels where applicable.
+4. Do not invent skills. If none matches, ask the user or fall back to plain
+   natural-language help.
 
 ## Scripts
 
-Python helpers live under `.codex/scripts/`. They run via `uv run -m
-scripts.research.<name>` from the vault root (or wherever the skill is
-installed). The commands that need them reference the exact invocation
-inside the command body.
+Python helpers live under \`.codex/scripts/\`. They run via
+\`uv run -m scripts.research.<name>\` from the vault root. Skills that need them
+reference the exact invocation inside the skill body.
 
 ---
 
@@ -79,18 +81,44 @@ EOF
   } > "$out"
 }
 
-# Copy commands into .codex/commands/, neutralizing Claude-specific tool
-# names so the instructions still make sense for Codex CLI agents.
-_codex_translate_commands() {
+# Emit one native Codex skill per command:
+#   .agents/skills/<name>/SKILL.md
+# Frontmatter carries `name` + `description` (required by Codex). We fold the
+# command's English triggers into the description so Codex's implicit selection
+# matches them. The body is the command body, tool-neutralized and
+# path-rewritten so references/scripts resolve under .codex/.
+_codex_emit_skills() {
   local src="$1" dst="$2"
   [[ -d "$src" ]] || return 0
-  mkdir -p "$dst"
-  local f out
+  local f name desc triggers out
   for f in "$src"/*.md; do
     [[ -f "$f" ]] || continue
     should_include "$f" "$CODEX_PLATFORM" || continue
-    out="$dst/$(basename "$f")"
-    cp "$f" "$out"
+
+    name="$(basename "$f" .md)"
+    desc="$(parse_frontmatter "$f" description)"
+    triggers="$(parse_frontmatter "$f" triggers_en)"
+    [[ -z "$desc" ]] && desc="Run the $name command of the obsidian-second-brain skill."
+
+    # Fold triggers into the description for implicit selection.
+    if [[ -n "$triggers" ]]; then
+      local trig_clean
+      trig_clean="$(echo "$triggers" | tr -d '[]"' | sed 's/,/, /g; s/  */ /g; s/^ *//; s/ *$//')"
+      [[ -n "$trig_clean" ]] && desc="$desc Triggers: $trig_clean."
+    fi
+
+    mkdir -p "$dst/$name"
+    out="$dst/$name/SKILL.md"
+    {
+      echo "---"
+      echo "name: $name"
+      # Quote the description; escape embedded double quotes.
+      printf 'description: "%s"\n' "${desc//\"/\\\"}"
+      echo "---"
+      echo
+      command_body "$f"
+    } > "$out"
+
     rewrite_tool_neutral "$out"
     rewrite_platform_paths "$out" "$CODEX_DIR"
   done
@@ -126,12 +154,20 @@ cp -R dist/codex-cli/. /path/to/your/vault/
 
 Then in your vault:
 
-- `AGENTS.md` is the operating manual Codex reads at session start.
-- `.codex/commands/*.md` are the command bodies the AI follows when a
-  matching trigger fires.
-- `.codex/scripts/` holds the Python helpers invoked by the research
-  toolkit commands. Run them via `uv run -m scripts.research.<name>`.
+- `.agents/skills/<name>/SKILL.md` are native Codex Agent Skills. Codex
+  discovers them automatically and loads each one's instructions only when it
+  is selected (progressive disclosure). Invoke a skill with `$<name>`, pick it
+  from `/skills`, or just describe the task and let Codex match it.
+- `AGENTS.md` is the always-on operating manual Codex reads at session start
+  (vault conventions + the AI-first rule). It is intentionally thin - the skill
+  list is the router.
+- `.codex/references/` holds shared specs (the AI-first vault rule) that skills
+  reference.
+- `.codex/scripts/` holds the Python helpers invoked by the research toolkit
+  skills. Run them via `uv run -m scripts.research.<name>` from the vault root.
 
-Start Codex CLI from the vault root.
+Start Codex CLI from the vault root. Skills run in your current session - no
+`codex exec` wrapper, no per-command startup, and writes honor your session's
+approval/sandbox mode.
 EOF
 }
