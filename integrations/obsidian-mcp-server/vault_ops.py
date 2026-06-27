@@ -26,6 +26,28 @@ _NOTES_DIR = "Inbox"
 # is not vault content and would inflate every result (see issue #80).
 _SKIP_DIRS = {".obsidian", ".git", ".trash", ".claude", "_export", "templates"}
 
+# Operational logs and immutable raw sources are rarely the *answer* to a query:
+# they are long and term-dense, so without a penalty they dominate term-frequency
+# ranking and bury short canonical notes (measured: 0% recall@10 before this - see
+# scripts/eval/retrieval_eval.py). De-weight them so they stay findable but cannot
+# outrank a real wiki note on equal terms.
+# Common function words carry no retrieval signal but recur thousands of times in
+# long notes, so without filtering they let any long note outscore the right one on
+# "the/what/status" alone (measured: a query like "what is the status of X" returned
+# 10 meeting notes, none the target). Drop them from query terms before scoring.
+_STOPWORDS = frozenset(
+    "the a an and or but of to for in on at by with from as is are was were be been "
+    "being do does did doing have has had this that these those it its their there here "
+    "what when where who whom which why how whose will would can could should may might "
+    "i you he she we they me him her us them my your his our about into over under than "
+    "then so if not no yes all any some more most other into out up down off again".split()
+)
+
+_SEARCH_DEWEIGHT_PREFIXES = ("raw/",)
+_SEARCH_DEWEIGHT_FILES = {"log.md"}
+# Tunable so retrieval changes can be A/B-measured (set to 1.0 to disable the penalty).
+_SEARCH_DEWEIGHT_FACTOR = float(os.environ.get("OBSIDIAN_SEARCH_DEWEIGHT", "0.15"))
+
 # Bounds keep search fast and reads safe.
 _MAX_FILES_SCANNED = 2000
 _MAX_FILE_BYTES = 200_000
@@ -47,7 +69,11 @@ def resolve_vault() -> Path:
 def search(query: str, *, limit: int = 6) -> List[Dict[str, Any]]:
     """Bounded case-insensitive term-frequency search over vault markdown."""
     vault = resolve_vault()
-    terms = [t for t in re.split(r"\W+", query.lower()) if len(t) > 2]
+    terms = [t for t in re.split(r"\W+", query.lower()) if len(t) > 2 and t not in _STOPWORDS]
+    if not terms:
+        # Query was all stopwords/short tokens - fall back to the raw terms so a
+        # search like "the who" still returns something rather than nothing.
+        terms = [t for t in re.split(r"\W+", query.lower()) if len(t) > 2]
     if not terms:
         return []
     limit = max(1, min(int(limit), 20))
@@ -65,9 +91,12 @@ def search(query: str, *, limit: int = 6) -> List[Dict[str, Any]]:
             score += low.count(t)
             score += 5 * title_low.count(t)  # title matches weighted
         if score:
+            rel = md.relative_to(vault).as_posix()
+            if rel in _SEARCH_DEWEIGHT_FILES or rel.startswith(_SEARCH_DEWEIGHT_PREFIXES):
+                score *= _SEARCH_DEWEIGHT_FACTOR
             scored.append(
                 {
-                    "path": str(md.relative_to(vault)),
+                    "path": rel,
                     "title": md.stem,
                     "score": score,
                     "snippet": _snippet(text, terms),

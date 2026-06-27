@@ -100,8 +100,14 @@ def _title_tokens(stem: str) -> set[str]:
 # --------------------------------------------------------------------------- #
 # Generate mode
 # --------------------------------------------------------------------------- #
-def _llm_question(body: str, title: str) -> str | None:
-    """Ask Grok for a natural-language question this note answers, avoiding title words."""
+def _llm_question(body: str, title: str, style: str = "semantic") -> str | None:
+    """Ask Grok for a natural-language question this note answers.
+
+    style="semantic": forbid the note's title words (tests meaning-based retrieval -
+        the hard case lexical search cannot do).
+    style="keyword": allow the topic words a real user would recall (tests whether
+        the right note ranks above noisy long notes - where re-ranking helps).
+    """
     try:
         from research.lib import grok
     except Exception:
@@ -111,11 +117,18 @@ def _llm_question(body: str, title: str) -> str | None:
     if not os.environ.get("XAI_API_KEY", "").strip():
         return None
     excerpt = body[:2500]
+    if style == "keyword":
+        rule = (
+            "Write it the way a person who half-remembers this note would actually "
+            "search - you MAY use the note's topic words. "
+        )
+    else:
+        rule = "Hard rule: do NOT reuse the note's title words verbatim. "
     prompt = (
         "Below is one note from a personal knowledge vault. Write ONE natural-language "
         "question a person would realistically ask whose answer is in this note. "
-        "Hard rules: do NOT reuse the note's title words verbatim, do NOT mention that "
-        "this is a note, keep it under 20 words, output ONLY the question.\n\n"
+        f"{rule}Do NOT mention that this is a note, keep it under 20 words, "
+        "output ONLY the question.\n\n"
         f"Note title: {title}\n\nNote body:\n{excerpt}"
     )
     try:
@@ -147,7 +160,7 @@ def _heuristic_question(body: str, title: str) -> str | None:
     return f"What does the vault say about: {best}" if best else None
 
 
-def generate(n: int, cases_path: Path) -> int:
+def generate(n: int, cases_path: Path, style: str = "semantic") -> int:
     vault = _vault()
     notes = _candidate_notes(vault)
     if not notes:
@@ -160,7 +173,7 @@ def generate(n: int, cases_path: Path) -> int:
     for md in sampled:
         rel = md.relative_to(vault).as_posix()
         body = md.read_text(encoding="utf-8", errors="ignore")
-        q = _llm_question(body, md.stem) or _heuristic_question(body, md.stem)
+        q = _llm_question(body, md.stem, style) or _heuristic_question(body, md.stem)
         if not q:
             continue
         cases.append({"q": q, "gold": [rel], "title": md.stem})
@@ -258,13 +271,16 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Vault retrieval-quality eval harness")
     ap.add_argument("--generate", type=int, metavar="N",
                     help="Bootstrap N eval cases from the vault instead of evaluating")
+    ap.add_argument("--style", choices=("semantic", "keyword"), default="semantic",
+                    help="Question style when generating: semantic (avoid title words, "
+                         "the hard case) or keyword (realistic lookup; default semantic)")
     ap.add_argument("--cases", type=Path, default=DEFAULT_CASES,
                     help=f"Cases JSONL path (default: {DEFAULT_CASES})")
     ap.add_argument("--json", action="store_true", help="Emit JSON instead of a text report")
     args = ap.parse_args()
 
     if args.generate is not None:
-        return generate(args.generate, args.cases)
+        return generate(args.generate, args.cases, args.style)
     return evaluate(args.cases, args.json)
 
 
