@@ -128,7 +128,7 @@ CRITICAL FORMAT RULES - DO NOT DEVIATE:
 - Do NOT add an introduction, preamble, conclusion, or "report" framing.
 - Do NOT exceed ~1200 words total.
 - Every external claim has a recency marker (date) AND source domain.
-- Every vault reference uses [[wikilinks]] with the exact path.
+- Vault paths: ONLY write a [[path]] wikilink if that exact path appears in the VAULT BASELINE above. NEVER invent or guess a vault path. If you mean a note that is not in the baseline, refer to it by a plain quoted title and mark it "(new note)" - e.g. Create a new note "AI memory tools" (new note). A wrong [[path]] causes a fabricated file, so when unsure use a title, not a link.
 - Be ruthless about contradictions - flagging them is the most valuable output.
 
 ## What's New Since Vault Baseline
@@ -140,15 +140,15 @@ CRITICAL FORMAT RULES - DO NOT DEVIATE:
 - [...]
 
 ## Contradictions / Updates Needed
-- [Specific claim where new external info contradicts a vault note - name the [[vault file path]] and the specific contradiction]
+- [Specific claim where new external info contradicts a vault note - name the [[exact baseline path]] (only if it is in the baseline) and the specific contradiction]
 - [...]
 
 ## Synthesis
-- [3-6 short bullets, NOT paragraphs. Each bullet captures one synthesized insight that combines baseline + new findings, with [[wikilink]] or URL citations inline]
+- [3-6 short bullets, NOT paragraphs. Each bullet captures one synthesized insight that combines baseline + new findings, with [[wikilink to a baseline path]] or URL citations inline]
 
 ## Recommended Vault Updates
-- [Specific instruction for /obsidian-save: e.g. "Update [[Knowledge/AI memory]] with the Anthropic memory tool launch (2026-02)"]
-- [Each instruction must reference a specific vault file path or clearly describe a new note to create]
+- [Specific instruction. Use [[path]] ONLY for a path in the baseline, e.g. "Update [[wiki/concepts/AI memory.md]] with the Anthropic memory tool launch (2026-02)". For anything not in the baseline, write: Create a new note "Title" (new note) - do NOT invent a path.]
+- [Each instruction either references a real baseline path or describes a new note by title]
 
 ## Open Questions
 - [What's still unclear after this round of research]
@@ -205,13 +205,16 @@ def run_free_deep(topic: str, academic: bool) -> int:
             "You are the synthesizer in free mode. Using the vault_baseline_notes (what the vault "
             "already knew) and the sources (fresh external findings), produce a vault-first delta note "
             "with exactly these sections: What's New Since Vault Baseline, What's Confirmed, "
-            "Contradictions / Updates Needed (name the [[vault path]]), Synthesis, Recommended Vault "
-            "Updates, Open Questions. Every external claim carries a recency marker and source domain; "
-            "every vault reference uses [[wikilinks]]. Never invent facts - if coverage is thin "
-            "(stats.success is false), say so in Open Questions. Save the note to "
+            "Contradictions / Updates Needed (name an [[exact baseline path]]), Synthesis, Recommended Vault "
+            "Updates, Open Questions. Every external claim carries a recency marker and source domain. "
+            "Only write a [[path]] for a path present in vault_baseline_notes; for anything else refer to a "
+            "new note by title and mark it (new note) - never invent a vault path. Never invent facts - if "
+            "coverage is thin (stats.success is false), say so in Open Questions. Save the note to "
             "Research/Deep/YYYY-MM-DD - <slug>.md as AI-first (type: research-deep, ai-first: true, "
-            "vault-baseline-notes and sources in frontmatter), then run /obsidian-save propagation on "
-            "the synthesis and honor the Recommended Vault Updates bullets."
+            "vault-baseline-notes and sources in frontmatter), then run /obsidian-save propagation on the "
+            "synthesis. Before writing any note, GROUND its path: search the vault for the target and update "
+            "the real note found; only create a new note (folder per references/folder-map.md) if an "
+            "exhaustive search finds none. A path from the synthesis is never proof the note exists."
         ),
     }
     print(json.dumps(payload, indent=2, default=encode_results))
@@ -329,8 +332,12 @@ def run_paid_deep(topic: str) -> int:
         "instruction": (
             "Read the research note at the path above. Then run /obsidian-save logic on the synthesis body: "
             "spawn parallel subagents for People, Projects, Ideas, Decisions; create or update notes per the AI-first vault rule; "
-            "honor 'Recommended Vault Updates' bullets in the synthesis as explicit propagation instructions; "
-            "link this research note from today's daily note."
+            "honor 'Recommended Vault Updates' bullets in the synthesis as explicit propagation instructions. "
+            "GROUND every path first: the synthesis is LLM-generated and may name vault paths that do not exist - "
+            "for each target, search the vault and update the real note found; only create a new note (folder per "
+            "references/folder-map.md) if an exhaustive search finds none. Never create a note at a path just "
+            "because the synthesis wrote it. Report any bullet you could not ground. "
+            "Link this research note from today's daily note."
         ),
     }
     print("\n<<<RESEARCH_DEEP_PROPAGATION_PAYLOAD>>>")

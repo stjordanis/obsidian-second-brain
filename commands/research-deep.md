@@ -30,11 +30,12 @@ Use the obsidian-second-brain skill. Execute `/research-deep [topic]`:
 
 5. **Propagation (both modes):**
    - In paid mode, parse the JSON payload; in free mode, use the note you just wrote and its synthesis.
+   - **Ground every path before writing (anti-fabrication - this is the failure mode of this command).** The synthesis is LLM-generated and may name vault paths that do not exist. Do NOT trust any `[[path]]` from the synthesis as real. For each note the "Recommended Vault Updates" bullets reference, FIRST resolve it against the actual vault: search by title and keywords (the `obsidian_search`/`vault_ops.search` ranked search, or grep the vault). If a real note is found, update THAT note at its real path. Only if an exhaustive search finds nothing do you create a new note - and then resolve its folder via `references/folder-map.md` (do not reuse the synthesis's invented path or folder). A path appearing in the synthesis is never sufficient evidence that the note exists.
    - Treat the synthesis body as the "conversation context" input to `/obsidian-save`.
-   - Run the standard `/obsidian-save` flow: spawn parallel subagents (People, Projects, Tasks, Decisions, Ideas) and update vault notes per the synthesis's "Recommended Vault Updates" bullets.
+   - Run the standard `/obsidian-save` flow: spawn parallel subagents (People, Projects, Tasks, Decisions, Ideas) and update vault notes per the synthesis's "Recommended Vault Updates" bullets - each subagent grounds its targets per the rule above before writing.
    - Apply the AI-first vault rule on every note created or updated (preamble, frontmatter, recency markers, wikilinks, sources).
    - Link the new research note from today's daily note.
-   - Then report back a clean list - "Updated [[X]], created [[Y]], linked [[Z]] from today's daily note."
+   - Then report back a clean list - "Updated [[X]], created [[Y]], linked [[Z]] from today's daily note" - using the real resolved paths, and note any synthesis bullet you could not ground (so a skipped update is visible, never silently dropped).
 
 6. Plain English triggers: "do deep research on [topic]", "research properly [topic]", "vault-aware research on [topic]", "research and update the vault on [topic]".
 
