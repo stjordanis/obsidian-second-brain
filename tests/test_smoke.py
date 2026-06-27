@@ -216,6 +216,21 @@ def test_health_duplicates_exempt_dated_series(tmp_path):
     assert any("onboarding" in m.lower() for m in dup_msgs), dup_msgs
 
 
+def test_health_excludes_export_bundle(tmp_path):
+    """Issue #82 follow-up: the OKF export bundle (_export/) is a full copy of the
+    vault, so scanning it made every note a duplicate of its export twin. _export
+    must be excluded - the note and its copy should not be flagged or counted."""
+    (tmp_path / "wiki").mkdir()
+    (tmp_path / "_export" / "okf" / "wiki").mkdir(parents=True)
+    body = "---\ntype: note\n---\n# Spec\nThe spec body.\n"
+    (tmp_path / "wiki" / "Spec.md").write_text(body, encoding="utf-8")
+    (tmp_path / "_export" / "okf" / "wiki" / "Spec.md").write_text(body, encoding="utf-8")
+
+    data = _run_health_json(tmp_path)
+    assert data["total_notes"] == 1, data["total_notes"]
+    assert not [i for i in data["issues"] if i["type"] == "duplicate"]
+
+
 def test_health_broken_links_ignore_code_examples(tmp_path):
     """Issue #82: example wikilinks inside code fences / inline code must not be
     flagged broken; a real dangling link in prose still is."""
