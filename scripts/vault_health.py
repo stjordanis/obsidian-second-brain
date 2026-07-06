@@ -81,7 +81,10 @@ def load_vault(vault: Path) -> dict:
         content = md.read_text(encoding="utf-8", errors="replace")
         fm_match = FRONTMATTER_RE.match(content)
         frontmatter = fm_match.group(1) if fm_match else ""
-        links = [l.strip().rstrip("\\") for l in LINK_RE.findall(content)]
+        # Strip fenced/inline code before extracting links so shell snippets like
+        # `[[ -z "$VAR" ]]` are not stored as wikilinks. These links feed the orphan
+        # check (all_links); leaving code noise in masks real orphans (issue #93).
+        links = [l.strip().rstrip("\\") for l in LINK_RE.findall(_strip_code(content))]
         due_match = DATE_RE.search(frontmatter)
         notes[rel] = {
             "path": md,
@@ -343,7 +346,15 @@ def check_wanted_notes(notes: dict, vault: Path) -> list:
             for link in LINK_RE.findall(_strip_code(note["content"]))
         ]
         for link in real_links:
-            link_stem = Path(link).stem.lower() if "/" in link else link.lower()
+            # Wikilink targets carry no extension; Path.stem treats everything after
+            # the last dot as a suffix and truncates titles like "release v2.4 notes"
+            # -> "release v2", so path-form links to dotted titles never resolve
+            # (issue #93). Take the last path component verbatim, stripping only a
+            # literal .md if present.
+            link_name = link.rsplit("/", 1)[-1]
+            if link_name.lower().endswith(".md"):
+                link_name = link_name[:-3]
+            link_stem = link_name.lower()
             link_norm = link_stem.replace("-", " ").replace("_", " ")
             link_dash_norm = _normalize_dashes(link_stem)
             resolved = (
