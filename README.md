@@ -46,10 +46,10 @@
 
 <p align="center">
   <a href="DEMOS.md">
-    <img src="media/plugin-install.gif" alt="Installing obsidian-second-brain through the Claude Code plugin marketplace: marketplace add, plugin install, status enabled." width="100%" />
+    <img src="media/obsidian-save.gif" alt="One /obsidian-save command turns a conversation into five cross-linked AI-first notes: a person, a project with the decision, a task, a board card, and the daily note." width="100%" />
   </a>
   <br />
-  <em>Installed in two commands. <a href="DEMOS.md">More demos &rarr;</a></em>
+  <em>One <code>/obsidian-save</code> - five cross-linked notes. Real footage, synthetic vault. <a href="DEMOS.md">More demos &rarr;</a></em>
 </p>
 
 <p align="center">

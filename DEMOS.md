@@ -2,6 +2,18 @@
 
 See obsidian-second-brain working before you install anything. Every demo on this page is real footage: the commands actually ran, and the GIF is rendered from a committed [vhs](https://github.com/charmbracelet/vhs) tape file, so it can be re-rendered pixel-perfect for any future version. All demos use synthetic data (throwaway vaults, fictional names) - no real vault ever appears on this page.
 
+## /obsidian-save - a conversation becomes five notes
+
+The flagship command. Earlier in the recorded session, the user brain-dumped one paragraph: met a new advisor, made a project decision, kickoff Tuesday. Then:
+
+<img src="media/obsidian-save.gif" alt="Running /obsidian-save headlessly: Claude writes a person note, a project note with the decision, a task, a board card, and the daily note, then the person note is shown with AI-first frontmatter." width="100%" />
+
+What you're seeing: one `/obsidian-save` fans out into `People/Grace Hopper.md`, `Projects/Demo Pipeline.md` (decision recorded under Key Decisions), a task due Tuesday, a kanban card, and today's daily note - all cross-linked. The final `head` shows what an AI-first note looks like inside: frontmatter with `TBD` for anything not actually stated, a `## For future Claude` preamble, and dated claims. Note the honesty details: it flags its own "vhs tapes" interpretation as an unverified inference, and refuses to assume anything about Grace Hopper from the famous name.
+
+Honesty note: the model's ~2 minute working pause is cut from the recording (vhs `Hide`/`Show` around the wait); everything shown is unedited real output. The demo runs headless (`claude -p`) with `--permission-mode acceptEdits` against the throwaway vault - in a normal interactive session you approve writes yourself.
+
+Tape: [media/obsidian-save.tape](media/obsidian-save.tape)
+
 ## Install as a Claude Code plugin
 
 Two commands and the whole skill is installed: 44 commands, the session hooks, and the vault MCP server.
