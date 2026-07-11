@@ -1,6 +1,8 @@
 """Smoke tests for the two highest-risk subsystems: the adapter build pipeline
-and the vault health checker. Both run the real scripts via subprocess and only
-depend on the Python standard library, so CI needs nothing beyond pytest.
+and the vault health checker. Both run the real scripts via subprocess. CI
+installs only the small dependency list in .github/workflows/ci.yml (pytest,
+requests, pyyaml, python-dotenv) - keep that list in sync with what these
+tests exercise.
 
 Adapted from the test added by the bmassenz fork (the only fork that shipped
 any automated test). See FORK_INSIGHTS.md items #47/#48.
