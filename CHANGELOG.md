@@ -6,13 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-11 - The Stress Test
+
 ### Fixed
 
 - **/research and /research-deep now honor a PERPLEXITY_API_KEY set in `~/.config/obsidian-second-brain/.env`.** The free-vs-paid decision read the process environment before anything had loaded the shared `.env` file (the documented setup), so paid-mode users silently got the free pipeline. Root-caused and fixed by @MichaelHabermas in #125 (fixes #124) - the project's first external contribution. Fenced in CI: a smoke test proves a key set only in the config `.env` selects paid mode, and that zero-config free mode still works when no key is set anywhere.
 
-## [0.12.0] - 2026-07-11 - The Stress Test
-
-### Fixed
+- **The audit's three never-tested surfaces are now exercised live, and the one real bug found is fixed (#126).** The bg-agent hook's gates, garbage-stdin handling, and parse-and-spawn chain are tested against a stub `claude` binary, and its embedded prompt resolves folders from the vault's folder map instead of hardcoding Obsidian-style names. The MCP write path ran end-to-end against a scratch vault with traversal probes on save/update/read all refused. The Telegram ingest core had a real bug: hardcoded wiki-style folders would fork a parallel `wiki/` tree into Obsidian-style vaults - fixed with folder-map resolution and covered by layout-sensitive tests.
 
 - **Every platform dist ships a runnable Python project now (stress-test fix 24/24 - the sprint closer).** The Codex build documented `uv run -m scripts.research.<name>` "from the vault root", but the install copies scripts to `<vault>/.codex/scripts/` and ships no `pyproject.toml` anywhere - the documented command hit `ModuleNotFoundError` with unresolvable dependencies, on every non-Claude platform (Gemini and Hermes documented the same broken invocation; OpenCode shipped the same broken layout silently). All five adapters now copy the repo's `pyproject.toml` next to their `scripts/` tree, making each dist a self-contained uv project, and the docs state the working invocation (`(cd .codex && uv run -m scripts.research.<name> ...)` for dot-dir platforms; from the install directory for Hermes). Verified live: the documented command now resolves and runs from a built dist. Fenced in CI: the codex dist must contain `pyproject.toml` beside `scripts/`, the INSTALL doc must state the cd-aware invocation, and the old broken claim must be absent. **This closes the 24-task stress-test fix sprint: PRs #100-#123, ~160 of the audit's 175 findings resolved, the test suite grown from 30 to 119 with eleven permanent CI fences.**
 
