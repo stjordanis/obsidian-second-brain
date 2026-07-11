@@ -47,7 +47,9 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 # Load env (OBSIDIAN_VAULT_PATH + optional keys) the same way the research toolkit does.
 try:
     from research.lib.config import VAULT_PATH  # noqa: F401  (import triggers dotenv load)
-except Exception:  # pragma: no cover - fall back to a bare dotenv load
+# config.py raises SystemExit (a BaseException) when OBSIDIAN_VAULT_PATH is
+# unset, so a bare `except Exception` lets it kill the importing process.
+except (Exception, SystemExit):  # pragma: no cover - fall back to a bare dotenv load
     try:
         from dotenv import load_dotenv
 
