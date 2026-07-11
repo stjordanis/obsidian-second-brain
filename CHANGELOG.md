@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-11 - The Stress Test
+
 ### Fixed
 
 - **Every platform dist ships a runnable Python project now (stress-test fix 24/24 - the sprint closer).** The Codex build documented `uv run -m scripts.research.<name>` "from the vault root", but the install copies scripts to `<vault>/.codex/scripts/` and ships no `pyproject.toml` anywhere - the documented command hit `ModuleNotFoundError` with unresolvable dependencies, on every non-Claude platform (Gemini and Hermes documented the same broken invocation; OpenCode shipped the same broken layout silently). All five adapters now copy the repo's `pyproject.toml` next to their `scripts/` tree, making each dist a self-contained uv project, and the docs state the working invocation (`(cd .codex && uv run -m scripts.research.<name> ...)` for dot-dir platforms; from the install directory for Hermes). Verified live: the documented command now resolves and runs from a built dist. Fenced in CI: the codex dist must contain `pyproject.toml` beside `scripts/`, the INSTALL doc must state the cd-aware invocation, and the old broken claim must be absent. **This closes the 24-task stress-test fix sprint: PRs #100-#123, ~160 of the audit's 175 findings resolved, the test suite grown from 30 to 119 with eleven permanent CI fences.**
