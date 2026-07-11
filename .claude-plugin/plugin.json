@@ -9,7 +9,6 @@
   "homepage": "https://github.com/eugeniughelbur/obsidian-second-brain",
   "license": "MIT",
   "commands": "./commands/",
-  "hooks": "./hooks/hooks.json",
   "mcpServers": {
     "obsidian-second-brain": {
       "command": "uv",

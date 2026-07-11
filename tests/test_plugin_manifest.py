@@ -51,7 +51,12 @@ def test_marketplace_catalog_agrees_with_plugin_manifest():
 def test_plugin_manifest_paths_exist():
     plugin = _load(".claude-plugin/plugin.json")
     assert (REPO_ROOT / plugin["commands"]).is_dir()
-    assert (REPO_ROOT / plugin["hooks"]).is_file()
+    # hooks/hooks.json is auto-loaded by convention. Declaring it AGAIN in
+    # plugin.json makes Claude Code reject the plugin with "Duplicate hooks
+    # file detected" (hit live 2026-07-12) - the manifest field is only for
+    # ADDITIONAL hook files beyond the standard path.
+    assert "hooks" not in plugin, "do not redeclare hooks/hooks.json in plugin.json"
+    assert (REPO_ROOT / "hooks/hooks.json").is_file()
     # Inline MCP server definition: the script it points at must exist.
     # (Inline is the mechanism that works - a root .mcp.json expands
     # ${CLAUDE_PLUGIN_ROOT} to empty, and would also register as a project
