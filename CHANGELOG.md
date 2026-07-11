@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **/research and /research-deep now honor a PERPLEXITY_API_KEY set in `~/.config/obsidian-second-brain/.env`.** The free-vs-paid decision read the process environment before anything had loaded the shared `.env` file (the documented setup), so paid-mode users silently got the free pipeline. Root-caused and fixed by @MichaelHabermas in #125 (fixes #124) - the project's first external contribution. Fenced in CI: a smoke test proves a key set only in the config `.env` selects paid mode, and that zero-config free mode still works when no key is set anywhere.
+
 ## [0.12.0] - 2026-07-11 - The Stress Test
 
 ### Fixed

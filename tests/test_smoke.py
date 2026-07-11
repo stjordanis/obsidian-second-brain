@@ -9,9 +9,12 @@ any automated test). See FORK_INSIGHTS.md items #47/#48.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -650,3 +653,57 @@ def test_architect_scan_emits_manifest(tmp_path):
     assert any(m["name"] == "billing" for m in data["modules"])
     assert "requests" in data["dependencies"]
     assert any(lang["language"] == "Python" for lang in data["languages"])
+
+
+_RESEARCH_MODE_PROBE = """
+import importlib
+import sys
+
+mod = importlib.import_module(sys.argv[1])
+setattr(mod, sys.argv[2], lambda *a, **k: print("CHOSE=paid") or 0)
+setattr(mod, sys.argv[3], lambda *a, **k: print("CHOSE=free") or 0)
+sys.exit(mod.main(["prog", "smoke test topic"]))
+"""
+
+
+@pytest.mark.parametrize(
+    ("module", "paid_fn", "free_fn"),
+    [
+        ("scripts.research.research", "run_paid", "run_free"),
+        ("scripts.research.research_deep", "run_paid_deep", "run_free_deep"),
+    ],
+)
+def test_research_key_in_config_env_selects_paid_mode(tmp_path, module, paid_fn, free_fn):
+    """A PERPLEXITY_API_KEY set only in ~/.config/obsidian-second-brain/.env (the
+    documented setup) must select paid mode, and no key anywhere must keep the
+    zero-config free mode. Regression fence for #124: the free-vs-paid decision
+    read os.environ before anything had loaded the .env file, so paid-mode users
+    silently got the free pipeline."""
+    fake_home = tmp_path / "home"
+    config_dir = fake_home / ".config" / "obsidian-second-brain"
+    config_dir.mkdir(parents=True)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+
+    env = os.environ.copy()
+    env["HOME"] = str(fake_home)
+    env.pop("PERPLEXITY_API_KEY", None)
+    env.pop("OBSIDIAN_VAULT_PATH", None)
+
+    def chosen_mode(env_file: str) -> str:
+        (config_dir / ".env").write_text(env_file, encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, "-c", _RESEARCH_MODE_PROBE, module, paid_fn, free_fn],
+            cwd=REPO_ROOT,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        return result.stdout
+
+    # research_deep requires a vault path at import time; research ignores it.
+    vault_line = f"OBSIDIAN_VAULT_PATH={vault}\n"
+    assert "CHOSE=paid" in chosen_mode(vault_line + "PERPLEXITY_API_KEY=pplx-smoke-test-key\n")
+    assert "CHOSE=free" in chosen_mode(vault_line)
