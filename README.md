@@ -36,6 +36,7 @@
   <br /><br />
   <em>write-time AI-first validator &middot; <code>/create-command</code> interview flow &middot; multilingual trigger schema</em>
   <br /><br />
+  <a href="DEMOS.md">Demos</a> &middot;
   <a href="#what-happens-when-you-install-this">See it in action</a> &middot;
   <a href="#44-commands">All commands</a> &middot;
   <a href="#install">Install</a> &middot;
@@ -44,8 +45,16 @@
 </p>
 
 <p align="center">
-  <strong>v0.10 - The Architect (May 2026):</strong> new <code>/obsidian-architect</code> scans a codebase and writes maintained architecture notes into your vault - refreshable, never clobbering your edits.<br/>
-  <em>Plus free key-less research, Google Calendar commands, anti-hallucination guards, and tests + CI.</em><br/>
+  <a href="DEMOS.md">
+    <img src="media/plugin-install.gif" alt="Installing obsidian-second-brain through the Claude Code plugin marketplace: marketplace add, plugin install, status enabled." width="100%" />
+  </a>
+  <br />
+  <em>Installed in two commands. <a href="DEMOS.md">More demos &rarr;</a></em>
+</p>
+
+<p align="center">
+  <strong>v0.12 - The Stress Test (July 2026):</strong> we stress-tested our own tool with 32 AI agents and fixed what they found - 175 findings, 24 fix PRs, search 2-4x better, and tools that can no longer eat your notes.<br/>
+  <em>Plus a native Claude Code plugin-marketplace install, a multilingual embedding default, and a 134-test CI wall.</em><br/>
   <a href="CHANGELOG.md">See the changelog &rarr;</a>
 </p>
 
