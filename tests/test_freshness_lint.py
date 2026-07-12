@@ -110,3 +110,18 @@ def test_json_shape_and_skip_dirs(tmp_path):
     assert set(report) == {"errors", "warnings", "findings"}
     assert len(report["findings"]) == 1  # _export/ skipped
     assert report["findings"][0]["file"] == "note.md"
+
+
+def test_inline_code_spans_are_quotation_not_claims(tmp_path):
+    write(tmp_path, "docs.md",
+          "# Docs\n\nA bare `we have 13 open deals` cannot merge.\n"
+          "Example pointer: `crm:pipeline/main` needs a mapping.\n")
+    report = lint_folder(tmp_path, today=TODAY)
+    assert not report["findings"]
+
+
+def test_modal_sentences_are_rules_not_observations(tmp_path):
+    write(tmp_path, "spec.md",
+          "# Spec\n\nOpen tickets can change within 7 days and must have a stamp.\n")
+    report = lint_folder(tmp_path, today=TODAY)
+    assert not report["findings"]

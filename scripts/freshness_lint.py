@@ -59,6 +59,12 @@ CURRENT_MARKERS = re.compile(
 # Line-initial Has/Have is imperative or a question, not a state claim.
 IMPERATIVE_START = re.compile(r"^\s*(?:[-*>]\s*)?(?:\*\*)?(have|has)\b", re.IGNORECASE)
 
+# Modal verbs mark rules, predictions, and hypotheticals - not observations.
+MODAL = re.compile(r"\b(can|could|may|might|would|should|must|will)\b", re.IGNORECASE)
+
+# Inline code spans are quotation, not claims (same principle as code fences).
+CODE_SPAN = re.compile(r"`[^`]*`")
+
 ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})(?:-(\d{2}))?\b")
 AS_OF = re.compile(r"\bas of\s+(\d{4})-(\d{2})(?:-(\d{2}))?", re.IGNORECASE)
 NUMBER = re.compile(r"(?<![\w./-])\d[\d,.]*(?![\w-])")
@@ -152,6 +158,9 @@ def lint_file(path: Path, rel: str, cfg: dict, today: date) -> list[dict]:
         if dated_heading_level is not None:
             continue  # FRESH-4: inside a dated section
 
+        # Quoted code is never a claim: strip inline spans before any check.
+        stripped = CODE_SPAN.sub("", stripped)
+
         # FRESH-3: typed pointers must be mapped (URLs are always fine).
         for pm in TYPED_POINTER.finditer(stripped):
             prefix = pm.group(1).lower()
@@ -174,6 +183,8 @@ def lint_file(path: Path, rel: str, cfg: dict, today: date) -> list[dict]:
             continue
         if not CURRENT_MARKERS.search(claim_text):
             continue  # timeless spec, history, or quote - not a current-state claim
+        if MODAL.search(claim_text):
+            continue  # "can change...", "must carry..." - a rule, not an observation
         if IMPERATIVE_START.match(claim_text) and not CURRENT_MARKERS.search(
                 IMPERATIVE_START.sub("", claim_text, count=1)):
             continue  # "Have the server return..." - an instruction, not a fact
