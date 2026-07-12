@@ -65,6 +65,9 @@ MODAL = re.compile(r"\b(can|could|may|might|would|should|must|will)\b", re.IGNOR
 # Inline code spans are quotation, not claims (same principle as code fences).
 CODE_SPAN = re.compile(r"`[^`]*`")
 
+# HTML comments are invisible in rendered markdown - never content.
+HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+
 ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})(?:-(\d{2}))?\b")
 AS_OF = re.compile(r"\bas of\s+(\d{4})-(\d{2})(?:-(\d{2}))?", re.IGNORECASE)
 NUMBER = re.compile(r"(?<![\w./-])\d[\d,.]*(?![\w-])")
@@ -160,12 +163,15 @@ def lint_file(path: Path, rel: str, cfg: dict, today: date) -> list[dict]:
 
         # Quoted code is never a claim: strip inline spans before any check.
         stripped = CODE_SPAN.sub("", stripped)
+        stripped = HTML_COMMENT.sub("", stripped)
 
         # FRESH-3: typed pointers must be mapped (URLs are always fine).
         for pm in TYPED_POINTER.finditer(stripped):
             prefix = pm.group(1).lower()
             if prefix in POINTER_IGNORE or URL.search(pm.group(0)):
                 continue
+            if pm.group(2).isdigit():
+                continue  # host:port (localhost:8080), not a typed pointer
             if ISO_DATE.fullmatch(pm.group(0)):
                 continue
             if prefix not in pointer_types:
@@ -179,6 +185,8 @@ def lint_file(path: Path, rel: str, cfg: dict, today: date) -> list[dict]:
         # Ordered-list step markers are structure, not quantities.
         claim_text = ORDERED_LIST.sub("", stripped)
         words = {w.strip(".,;:!?()[]*_`'\"").lower() for w in claim_text.split()}
+        if stripped.lstrip().startswith(">"):
+            continue  # blockquote: quoted speech or captured output, a snapshot by nature
         if not (words & volatile) or not NUMBER.search(claim_text):
             continue
         if not CURRENT_MARKERS.search(claim_text):

@@ -125,3 +125,18 @@ def test_modal_sentences_are_rules_not_observations(tmp_path):
           "# Spec\n\nOpen tickets can change within 7 days and must have a stamp.\n")
     report = lint_folder(tmp_path, today=TODAY)
     assert not report["findings"]
+
+
+def test_html_comments_and_ports_are_not_pointers(tmp_path):
+    write(tmp_path, "arch.md",
+          "# Arch\n\n<!-- @generated:start -->\ncontent here\n<!-- @user:end -->\n"
+          "Dev server runs on localhost:8080 for tests.\n")
+    report = lint_folder(tmp_path, today=TODAY)
+    assert not rules(report, "FRESH-3")
+
+
+def test_blockquotes_are_quotation_snapshots(tmp_path):
+    write(tmp_path, "call.md",
+          "# Call\n\n> We have 13 open deals right now and 4 tickets pending.\n")
+    report = lint_folder(tmp_path, today=TODAY)
+    assert not rules(report, "FRESH-1")
