@@ -60,6 +60,16 @@ freshness: wiring | snapshot | pointer   # declares the note's dominant form
 freshness-window: 7d                     # overrides the default for this note
 ```
 
+## The refresh loop (what maintenance actually is)
+
+Detection is half the job. An aged stamp (FRESH-2 warning) needs one of three answers, and this loop IS the maintainer:
+
+1. **Re-observe.** Check the home system, update the value and the stamp: `13 deals (as of 2026-07-12)` becomes `11 deals (as of 2026-08-02)`.
+2. **Convert.** If nobody re-observes it, the value did not matter - keep only the pointer to where truth lives and drop the number.
+3. **Retire.** If the claim is history worth keeping, move it into a dated note (or under a dated heading), where it becomes an immutable snapshot and stops asking for refreshes.
+
+Run on a schedule (weekly fits the default 7-day window), this loop keeps a knowledge folder honest forever with minutes of work: the lint finds what aged, a human or an AI agent answers re-observe, convert, or retire per line, and nothing silently rots.
+
 ## Why this works
 
 Slow facts compound: the more you store, the smarter the folder gets. Fast facts rot: every stored one is a future lie. The policy keeps the folder full of the first kind and honest about the second, and the lint makes that a property of the system instead of a habit of the writer.
