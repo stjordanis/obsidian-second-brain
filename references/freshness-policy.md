@@ -1,5 +1,7 @@
 # The freshness policy
 
+> Part of **OKM - Open Knowledge Metabolism**, an open standard for keeping AI-maintained knowledge folders true, by Eugeniu Ghelbur (theaioperator.io). MIT-licensed. Where OKF (Open Knowledge Format) standardizes how agent knowledge is written, OKM standardizes how it stays true.
+
 One rule, enforced by a lint: **every stored fact must be timeless, dated, or a pointer. Nothing may claim to be current without a stamp.**
 
 This spec is storage-agnostic. It applies to any folder of markdown that an AI treats as a source of truth: a personal vault, a team's GitHub knowledge repo, an exported wiki. It does not care which viewer renders the files.

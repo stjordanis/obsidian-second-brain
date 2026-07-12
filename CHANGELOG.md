@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **The freshness policy and lint are named: OKM (Open Knowledge Metabolism).** The one-page spec and `freshness_lint.py` now carry the OKM attribution and MIT copyright inline. OKM is an open standard for keeping AI-maintained knowledge folders true - the metabolism to OKF's format. It lives here in obsidian-second-brain (where it was built and dogfooded on a 2,300-note vault); a standalone template repo may follow.
+
 - **The freshness policy is now part of the write constitution, and it has a refresh loop.** Rule 4 of `references/ai-first-rules.md` (recency markers) now extends to internal fast facts: every stored fact must be timeless, dated, or a pointer, so every command that writes to the vault produces compliant notes from birth instead of relying on after-the-fact detection. The policy spec gained "The refresh loop" - the three answers to an aged stamp (re-observe, convert to pointer, retire into a dated note) that turn detection into maintenance; /obsidian-health's Freshness agent runs that loop on FRESH-2 warnings.
 
 - **/obsidian-health now runs the freshness lint as its own agent.** The health check gained a Freshness agent that enforces `references/freshness-policy.md` across the vault: undated present-tense claims about fast facts surface as warnings, with three offered fixes (add an `as of` stamp, convert to a pointer, move into a dated note) and never a deletion. Documented in SKILL.md and the README commands table. The policy and lint grew out of the two stress-test rounds: the audit found search surfacing superseded facts (#114) and the vault-side answer is metadata that cannot lie silently.

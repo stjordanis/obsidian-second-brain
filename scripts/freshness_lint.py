@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Freshness lint - enforce references/freshness-policy.md on any markdown folder.
 
+Part of OKM (Open Knowledge Metabolism), an open standard for keeping
+AI-maintained knowledge folders true. Copyright (c) 2026 Eugeniu Ghelbur.
+MIT-licensed. https://theaioperator.io
+
 Every stored fact must be timeless, dated, or a pointer. This lint finds the
 one illegal form: a present-tense claim about a fast fact, with no stamp,
 outside a dated container.
