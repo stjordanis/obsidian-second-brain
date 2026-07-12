@@ -63,8 +63,8 @@
 </p>
 
 <p align="center">
-  <strong>Latest:</strong> <a href="https://theaioperator.io/p/huge-update-on-obsidian-second-brain">"HUGE update on obsidian-second-brain: The Architect"</a><br />
-  <em>v0.10 ships <code>/obsidian-architect</code> &middot; document your codebase into your vault &middot; the full before-and-after</em>
+  <strong>Featured:</strong> <a href="https://theaioperator.io/p/huge-update-on-obsidian-second-brain">"HUGE update on obsidian-second-brain: The Architect"</a><br />
+  <em><code>/obsidian-architect</code> &middot; document your codebase into your vault &middot; the full before-and-after</em>
 </p>
 
 <p align="center">
@@ -503,6 +503,8 @@ This vault rewrites itself with every input:
 
 The vault after a week is fundamentally different from the vault you started with.
 
+**The maintenance layer has a name: OKM (Open Knowledge Metabolism).** Storage is the easy half; keeping stored knowledge *true* is the hard half, and it is where this project spends its effort. OKM is the open standard behind that: **every stored fact must be timeless, dated, or a pointer.** Slow-changing knowledge (how things work, decisions, ownership) is stored; fast-changing facts (counts, statuses, balances) are linked to where they live with an `as of` stamp, never copied in to rot. The rule is a one-page spec ([references/freshness-policy.md](references/freshness-policy.md)), enforced by a linter ([scripts/freshness_lint.py](scripts/freshness_lint.py)) that `/obsidian-health` runs. Where OKF (Google's Open Knowledge Format) standardizes how agent knowledge is *written*, OKM standardizes how it *stays true* - the metabolism to OKF's format. It is storage-agnostic: any folder of markdown an AI maintains, not just Obsidian vaults.
+
 ---
 
 ## Choose Your Preset
@@ -767,6 +769,9 @@ The principle that vault notes are written for future-Claude to retrieve and rea
 
 ### Is this safe to run on my existing vault?
 Yes. The skill never deletes or modifies notes destructively without explicit confirmation. Existing notes stay as-is. New notes follow the AI-first rule. `/obsidian-health` flags pre-AI-first notes so you can update them on your own schedule.
+
+### What is OKM (Open Knowledge Metabolism)?
+The maintenance layer, given a name. Its one rule: every stored fact must be timeless, dated, or a pointer - so a knowledge folder can never quietly fill with facts that used to be true. Slow knowledge is stored; fast facts are linked to their live source with an `as of` stamp instead of copied in. It ships as a one-page spec ([`references/freshness-policy.md`](references/freshness-policy.md)) and a stdlib-only linter ([`scripts/freshness_lint.py`](scripts/freshness_lint.py)) that `/obsidian-health` runs, and it is storage-agnostic (any markdown folder an AI maintains). Think of it as the companion to OKF (Open Knowledge Format): OKF standardizes how knowledge is written, OKM keeps it true.
 
 ### What does `/research-deep` do that `/research` doesn't?
 `/research` runs a single Perplexity query and returns a dossier with citations. `/research-deep` is vault-first: it scans your existing notes, identifies what you already know about the topic, spawns 3-5 targeted follow-up searches to fill only the gaps, and produces a delta report (what's new, what's confirmed, contradictions to resolve, recommended vault updates). Vault-first means you stop re-researching what's already in your notes.
