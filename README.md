@@ -30,6 +30,8 @@
   <br /><br />
   <em>Every source updates existing pages instead of just appending new ones. Contradictions reconcile automatically. Your vault compounds while you sleep.</em>
   <br /><br />
+  <strong>Powered by <a href="references/freshness-policy.md">OKM - Open Knowledge Metabolism</a>:</strong> <em>store the slow, link the fast, lint the difference - so your knowledge base never fills with facts that used to be true.</em>
+  <br /><br />
   <em>44 commands &middot; auto-synthesis &middot; thinking tools that argue with you</em>
   <br /><br />
   <em>live research from X, the web, and YouTube &middot; 4 scheduled agents &middot; 4 role presets</em>
@@ -37,6 +39,7 @@
   <em>write-time AI-first validator &middot; <code>/create-command</code> interview flow &middot; multilingual trigger schema</em>
   <br /><br />
   <a href="DEMOS.md">Demos</a> &middot;
+  <a href="#the-vault-is-alive">OKM</a> &middot;
   <a href="#what-happens-when-you-install-this">See it in action</a> &middot;
   <a href="#44-commands">All commands</a> &middot;
   <a href="#install">Install</a> &middot;
