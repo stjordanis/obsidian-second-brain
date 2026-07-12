@@ -30,7 +30,7 @@
   <br /><br />
   <em>Every source updates existing pages instead of just appending new ones. Contradictions reconcile automatically. Your vault compounds while you sleep.</em>
   <br /><br />
-  <strong>Powered by <a href="references/freshness-policy.md">OKM - Open Knowledge Metabolism</a>:</strong> <em>store the slow, link the fast, lint the difference - so your knowledge base never fills with facts that used to be true.</em>
+  <strong>Powered by <a href="references/freshness-policy.md">OKM - Open Knowledge Metabolism</a>:</strong> <em>every stored fact is timeless, dated, or a pointer - so your knowledge base never fills with facts that used to be true.</em>
   <br /><br />
   <em>44 commands &middot; auto-synthesis &middot; thinking tools that argue with you</em>
   <br /><br />
@@ -285,7 +285,7 @@ Free transcript via youtube-transcript-api. Optional metadata + top comments via
 | `/obsidian-board-hygiene` | Bulk-triage a board -- surface stale/overdue items, then archive / reschedule / mark-Done in one pass |
 | `/obsidian-project` | Project note with board and daily links |
 | `/obsidian-projects` | Live project status from git + local docs -- infers all context from vault notes, no config required |
-| `/obsidian-health` | Vault audit -- contradictions, gaps, stale claims, orphans, freshness violations (the [freshness policy](references/freshness-policy.md): store the slow, link the fast) |
+| `/obsidian-health` | Vault audit -- contradictions, gaps, stale claims, orphans, freshness violations (the [freshness policy](references/freshness-policy.md): every fact timeless, dated, or a pointer) |
 | `/obsidian-retrieval-eval` | Measures vault search quality -- recall@k + MRR on natural-language questions, with the concrete failures and ranked fixes |
 | `/obsidian-decide [--formal]` | Logs decisions to the right project notes; `--formal` writes a full ADR record (the vault knows why it's structured this way) |
 | `/obsidian-visualize` | Generates a visual canvas map of your second brain |
