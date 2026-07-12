@@ -46,6 +46,8 @@ This is the sentence that becomes a lie next Tuesday while still reading as trut
 
 ## Lint rules (what a checker enforces)
 
+The reference checker is [scripts/freshness_lint.py](../scripts/freshness_lint.py): `python scripts/freshness_lint.py --path /any/markdown/folder [--json] [--strict]`. On a repo written under this policy it can gate CI; on a legacy vault it is an audit report to work down (heuristics favor precision, and FRESH-1 will still surface some prose that only reads like a claim).
+
 - **FRESH-1 (error):** a quantitative present-tense claim about a volatile noun (counts, balances, totals, statuses) outside a dated container must carry an `as of` stamp or be rewritten as a pointer.
 - **FRESH-2 (warning):** a stamp older than the freshness window (default 7 days; configurable per folder) flags the line: refresh the observation or convert it to a pointer. Nothing is deleted; stale lines fade in search and surface in health reports.
 - **FRESH-3 (error):** a pointer must have a resolvable target: a URL, or a typed id the folder's config maps to one (`linear:TICKET-123`, `crm:pipeline/main`).
