@@ -190,3 +190,28 @@ def test_project_hints_injected_only_when_opted_in(tmp_path):
     }, tmp_path)
     assert r.returncode == 0
     assert "HINT-SENTINEL" not in _prompt_body(), "hints must stay inert without CLAUDE_VAULT_PROPAGATION=1"
+
+
+def test_launch_uses_strict_mcp_config(tmp_path):
+    """The headless agent must launch with --strict-mcp-config. Its prompt
+    declares MCP unavailable in the subprocess; without the flag the run loads
+    every enabled MCP server and can seize a concurrent MCP-based bot's single
+    session (e.g. a Telegram/Slack integration). Regression fence for #136."""
+    vault = tmp_path / "vault"; vault.mkdir()
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text(
+        json.dumps({"isCompactSummary": True,
+                    "message": {"content": "SUMMARY-SENTINEL: did a thing"}}) + "\n",
+        encoding="utf-8",
+    )
+    r = _run_hook(json.dumps({"transcript_path": str(transcript)}), {
+        "OBSIDIAN_VAULT_PATH": str(vault), "OBSIDIAN_BG_AGENT_ENABLED": "1",
+    }, tmp_path)
+    assert r.returncode == 0
+    record = tmp_path / "claude-invocation.txt"
+    for _ in range(50):  # the spawn is async by design
+        if record.exists() and record.read_text(encoding="utf-8").strip():
+            break
+        time.sleep(0.1)
+    body = record.read_text(encoding="utf-8")
+    assert "ARG=--strict-mcp-config" in body, "headless run must enforce filesystem-only MCP"
