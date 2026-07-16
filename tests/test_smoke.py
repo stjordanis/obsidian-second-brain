@@ -97,8 +97,15 @@ def test_hermes_build_generates_native_skills():
     assert hooks_doc.is_file()
     # The on_session_end lifecycle hook (PostCompact analog) and its config ship.
     assert (REPO_ROOT / "dist/hermes/hooks/obsidian-hermes-session-end.sh").is_file()
-    assert (REPO_ROOT / "dist/hermes/hooks/hermes-hooks.cli-config.example.yaml").is_file()
-    assert "on_session_end" in hooks_doc.read_text(encoding="utf-8")
+    assert (REPO_ROOT / "dist/hermes/hooks/hermes-hooks.config.example.yaml").is_file()
+    hooks_text = hooks_doc.read_text(encoding="utf-8")
+    assert "on_session_end" in hooks_text
+    # Blueprints never arm on install (#134): the docs must teach explicit arming.
+    assert "hermes cron create" in hooks_text
+    assert "arms as soon as" not in hooks_text
+    install_text = (REPO_ROOT / "dist/hermes/INSTALL.md").read_text(encoding="utf-8")
+    assert "~/.hermes/optional-skills" not in install_text
+    assert "hermes cron create" in install_text
 
 
 def test_pi_build_generates_package():
