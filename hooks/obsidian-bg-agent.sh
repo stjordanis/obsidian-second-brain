@@ -196,9 +196,16 @@ log_run "starting" summary_chars "${#SUMMARY}" hints_chars "${#PROJECT_HINTS}"
 # never read. stdin has no such limit. Real compaction summaries reach 24K+
 # chars, so this is not a theoretical edge. Delete the temp file after the
 # subprocess exits (not before spawn), then record the outcome.
+#
+# --strict-mcp-config: this agent uses filesystem tools only (see CONSTRAINTS in
+# the prompt: "MCP is not available in this subprocess"). Without the flag the
+# headless run still loads every enabled MCP server, contradicting that contract
+# and wasting startup - and worse, for users running an MCP-based bot (e.g. a
+# Telegram/Slack integration) alongside Claude Code, this background run can
+# seize the bot's single MCP session and disrupt the live poller.
 (
   cd "$VAULT" || exit 1
-  claude --dangerously-skip-permissions -p < "$PROMPT_FILE" >> /tmp/obsidian-bg-agent.log 2>&1
+  claude --dangerously-skip-permissions --strict-mcp-config -p < "$PROMPT_FILE" >> /tmp/obsidian-bg-agent.log 2>&1
   EXIT_CODE=$?
   rm -f "$PROMPT_FILE"
   log_run "completed" duration_sec "$(( $(date +%s) - START_TIME ))" exit_code "$EXIT_CODE"
