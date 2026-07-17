@@ -64,8 +64,8 @@ _SEARCH_ENTITY_BOOST = float(os.environ.get("OBSIDIAN_SEARCH_ENTITY_BOOST") or "
 _LOG_TYPES = {"log", "dev-log", "daily", "worklog"}
 _ENTITY_TYPES = {"person", "entity"}
 _LOG_FOLDERS = {"logs", "daily", "dev logs"}
-# Freshness (stress-test fix 15/24): "who is my CURRENT employer" ranked a
-# declined offer above the real employer. Two levers, lexical arm only (the
+# Freshness (stress-test fix 15/24): a "what is CURRENT" query ranked a
+# superseded/declined note above the one that still holds. Two levers, lexical arm only (the
 # semantic arm rejected additive nudges by measurement in fix 13):
 # - a recency band: old notes lose near-ties, gently always, strongly when the
 #   query itself asks about the present (current/now/still/today/latest)
@@ -97,8 +97,8 @@ def _note_age_days(text: str, md: Path) -> float:
 
 def _freshness_rerank(results, vault: Path, current_intent: bool):
     """Post-fusion re-rank: the semantic arm knows nothing about time or status,
-    so fusion happily served a declined April offer above the real employer for
-    "who is my CURRENT employer". Reads only the top results' frontmatter heads
+    so fusion happily served a superseded note above the one that still holds for
+    a "what is current now" query. Reads only the top results' frontmatter heads
     (cheap): stale-status notes step back always (their own metadata says they
     no longer hold); recency reorders only when the query asks about the
     present. Rank-derived base scores keep this a reorder, never a rewrite."""

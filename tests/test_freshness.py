@@ -1,7 +1,7 @@
 """Freshness: "current" is part of the question (stress-test fix 15/24).
 
-The audit's flagship failure: "who is my CURRENT employer" ranked a declined
-April offer above the real employer. Ranking now reads two honest signals the
+The audit's flagship failure: a "what is CURRENT now" query ranked a superseded,
+since-declined note above the one that still holds. Ranking now reads two honest signals the
 fusion ignored: a note's own stale status (superseded/declined/parked...) fades
 it always, and recency reorders when the query asks about the present.
 """
@@ -78,11 +78,11 @@ def test_note_age_prefers_updated_over_date(tmp_path):
 def test_search_detects_current_intent_tokens(tmp_path, monkeypatch):
     vault = tmp_path / "vault"
     vault.mkdir()
-    (vault / "a.md").write_text("---\ntype: note\n---\nemployer facts\n", encoding="utf-8")
+    (vault / "a.md").write_text("---\ntype: note\n---\ncurrent provider facts\n", encoding="utf-8")
     monkeypatch.setenv(vault_ops._VAULT_ENV, str(vault))
     seen = {}
     monkeypatch.setattr(vault_ops, "_freshness_rerank",
                         lambda res, v, ci: seen.setdefault("ci", ci) or res)
     monkeypatch.setattr(vault_ops, "_semantic_fuse", lambda *a, **k: [{"path": "a.md"}])
-    vault_ops.search("who is my current employer", limit=5)
+    vault_ops.search("what is the current provider", limit=5)
     assert seen["ci"] is True
