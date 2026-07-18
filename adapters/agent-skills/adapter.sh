@@ -193,9 +193,9 @@ _ask_emit_install_hint() {
 
 This build is one spec-compliant Agent Skills tree. Every harness that reads the
 open \`.agents/skills/\` standard - Google **Antigravity**, OpenAI **Codex CLI**,
-and **OpenCode** - discovers these skills automatically: each skill's name and
-description stay visible, and the full body loads only when the skill is selected
-(progressive disclosure).
+**OpenCode**, and **GitHub Copilot CLI** among them - discovers these skills
+automatically: each skill's name and description stay visible, and the full body
+loads only when the skill is selected (progressive disclosure).
 
 The tree contains \`skills/<name>/SKILL.md\` (43 command skills) plus the shared
 \`skills/${ASK_CORE}/\` engine skill (references, scripts, pyproject). There is
@@ -248,6 +248,13 @@ cp -R dist/agent-skills/skills/. /path/to/your/vault/.agents/skills/
   (global). Its validator is strict: only \`name\`, \`description\`, \`license\`,
   \`compatibility\`, and a string-map \`metadata\` are accepted, and \`name\` must
   match the directory - this build already conforms.
+- **GitHub Copilot CLI** - loads project skills from \`.agents/skills/\` (and
+  \`.github/skills/\`, \`.claude/skills/\`) and personal skills from
+  \`~/.agents/skills/\` or \`~/.copilot/skills/\` (as of 2026-07,
+  docs.github.com). The same tree works unchanged; the skills.sh agent target
+  is \`github-copilot\`.
+- **Anything else on the Agent Skills standard** - any harness that reads
+  \`.agents/skills/<name>/SKILL.md\` picks this build up with zero changes.
 
 ## What is NOT covered
 
