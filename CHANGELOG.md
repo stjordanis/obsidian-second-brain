@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-18 - The Open Standard
+
 ### Security
 
 - **Link triage can no longer write outside the vault (stress-test round 2).** `triage_links.py` built a new stub's path straight from wikilink text, and the wikilink regex allows `/`, `.`, and `..`. A `CREATE` verdict on a crafted or hallucinated `[[../../escaped/x]]` wrote a file above the vault root, `[[/abs/path/x]]` wrote at an absolute path, and `[[/unwritable/x]]` raised an unhandled `OSError` that aborted the whole batch. Since the verdict comes from an LLM reading attacker-influenceable vault text, this was a real containment hole. The stub path is now resolved and required to stay inside `wiki/stubs/`; anything that escapes is skipped and reported, never written and never fatal. Covered by `tests/test_note_safety.py` (parent-traversal refused, absolute-path refused, legitimate stubs still created).

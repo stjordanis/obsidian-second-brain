@@ -843,6 +843,12 @@ Building a domain-specific fork (academic, legal, finance, medical)? See [ECOSYS
 
 Customizing your own fork? Copy [`references/DELTAS.template.md`](references/DELTAS.template.md) to a `DELTAS.md` at your fork root and record your local deviations there. Upstream never touches that file, so you can keep merging `upstream/main` cleanly instead of fighting conflicts in stock commands.
 
+### Contributors
+
+This project is maintained by one person but built with many. 18+ external contributors have landed merged PRs - security fixes, platform ports (Pi came from a contributor), Windows compatibility, translations, and the first automated test. Ideas from closed or stalled PRs get reimplemented with the original author credited as co-author rather than dropped. See the full list on the [contributors graph](https://github.com/eugeniughelbur/obsidian-second-brain/graphs/contributors).
+
+If your PR goes quiet mid-review, that is normal life - the idea stays on the table, and if it lands later you stay on the commit.
+
 ---
 
 ## Sponsors
