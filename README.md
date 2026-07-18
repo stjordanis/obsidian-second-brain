@@ -56,8 +56,8 @@
 </p>
 
 <p align="center">
-  <strong>v0.13 - The Open Standard (July 2026):</strong> one spec-compliant Agent Skills build now serves Codex CLI, OpenCode, Google Antigravity, and GitHub Copilot CLI from a single <code>.agents/skills/</code> tree.<br/>
-  <em>Plus Tavily + Brave research sources, full-page source reading in /research-deep, a multi-turn /obsidian-brainstorm, bounded vault recall, a guarded updater, and a 191-test CI wall.</em>
+  <strong>v0.14 - The Harvest (July 2026):</strong> we scanned all 408 forks of this repo and shipped the best ideas back upstream, crediting every author.<br/>
+  <em>Multi-turn /obsidian-brainstorm, bounded vault recall, full-page source reading, Brave + Tavily sources, a guarded updater, supersession-aware search, secret detection, pt-BR triggers - and one Agent Skills build serving Codex, OpenCode, Antigravity, and Copilot CLI (v0.13). 191-test CI wall.</em>
   <a href="CHANGELOG.md">See the changelog &rarr;</a>
 </p>
 

@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-18 - The Harvest
+
 ### Added
 
 - **Bounded vault recall on every prompt - opt-in `UserPromptSubmit` hook (fork gold round 2, P1, the deepest idea in the sweep).** `hooks/obsidian-recall.py` injects a small brief of the most relevant vault notes into each prompt's context: hard-bounded (max 4 notes, ~900 chars), **abstaining** - a low-confidence match injects nothing, because silence beats noise - **fail-closed** (any error exits silently; recall must never break a prompt), and **observable** (every inject/abstain decision appends a JSONL line to `<vault>/.claude-runs/recall-YYYY-MM-DD.jsonl`). Reuses the shipped `vault_ops.search`, so recall benefits from the same freshness and supersession reranking as the MCP. Ships inert on the bg-agent's double-gate trust model: nothing runs until both `OBSIDIAN_VAULT_PATH` and `OBSIDIAN_RECALL_ENABLED=1` are set and the hook is registered (`hooks/recall.hook.example.json`). Pattern from the local-first memory fork's bounded-recall design (see `FORK_INSIGHTS.md` round 2) - deliberately WITHOUT its per-prompt index rebuild (O(vault) per prompt latency). Covered by `tests/test_smoke.py::test_recall_hook_contract` (gate, bounded injection, abstention, logging).
