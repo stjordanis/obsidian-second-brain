@@ -21,6 +21,11 @@ paraphrases. Metrics below were measured on the maintainer's ~2,350-note vault,
 | EN keyword | 0.733 | 0.933 | 1.000 | 0.820 |
 | RU/ES paraphrase | 0.188 | 0.625 | 0.625 | 0.377 |
 
+Re-measured 2026-07-18 on the same three case sets after a week of live vault
+growth: **stable, no regression**. EN paraphrase and EN keyword byte-identical
+(EN paraphrase MRR 0.474, within noise); RU/ES improved slightly (recall@1
+0.250, MRR 0.408). The index tracks vault changes without drift.
+
 ## Phase B start vs end (default mode)
 
 Start = first honest measurement after the ruler fix (mxbai-embed-large, flat
