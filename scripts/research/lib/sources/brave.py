@@ -1,8 +1,8 @@
 """Brave Search source. Optional keyed extra for the free-mode pool.
 
 Joins the aggregation pool only when BRAVE_API_KEY is set (the caller checks;
-see research._free_sources). Brave's free tier (2,000 queries/month as of
-2026-07, brave.com/search/api) makes this the cheapest keyed web source.
+see research._free_sources). Brave bills per use: $5/1,000 requests with $5 free
+credits monthly (as of 2026-07, api-dashboard.search.brave.com).
 Plain requests - no SDK. Design mirrors the fork that first built it
 (fork-insights round 2, the brave-source fork).
 """
