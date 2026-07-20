@@ -1,4 +1,9 @@
-"""xAI Grok client with Live Search support. Uses the /v1/responses endpoint."""
+"""xAI Grok client. Uses the Agent Tools API at /v1/responses.
+
+Live Search (`search_parameters` on /v1/chat/completions) was deprecated by xAI and
+now returns HTTP 410 — do not reintroduce it. Live X/web access comes from the
+`tools` argument below instead.
+"""
 
 import re
 import time
@@ -64,9 +69,11 @@ def call(
                                extra={"tools": [t.get("type") for t in (tools or [])]})
                 return {
                     "text": text,
+                    "model": model,
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
                     "cost_usd": cost,
+                    "cost_is_estimate": usage.is_estimate(model),
                     "raw": data,
                 }
             if r.status_code in (429, 500, 502, 503, 504):
