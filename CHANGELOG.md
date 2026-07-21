@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Typed edges + graph linting - the graph-engineering layer.** A plain `[[wikilink]]` says two notes are related but not *how*; notes can now record *typed* relationships in a `relations:` frontmatter block with a controlled vocabulary (`supersedes`/`superseded_by`, `depends_on`/`required_by`, `caused`/`caused_by`, `decided_by`/`decides`, `relates_to`, `contradicts`), turning a pile of links into a traversable, interpretable graph. `scripts/link_graph.py` parses the block (inline-list and block-list forms, plus the legacy top-level `supersedes:` scalar as an equivalent alias) and exposes it as a `typed_edges` overlay in its JSON - kept separate from degree, since the underlying frontmatter link is already counted, so orphan/hub math is unchanged. A new `--lint` mode validates the layer and returns severity-ranked findings: contradiction cycles (A and B claim the same asymmetric type about each other) as critical; unknown types, dangling targets, and self-edges as warnings; missing inverse edges as info. `/obsidian-health` gains a typed-edge lint agent that folds these into its severity groups; `/obsidian-visualize` labels canvas edges with their relation type and summarizes the overlay (counts by type, longest reasoning chains). Documented as Rule 6 § Typed edges in `references/ai-first-rules.md` (with an ADR-schema cross-reference). Covered by `tests/test_smoke.py::test_link_graph_typed_edges_and_lint`. Implements the techniques from the "graph engineering" writeup (typed edges, entity resolution via wikilinks, graph linting) while staying plain-markdown, no-database, no-lock-in - the overlay is reconstructed on demand from frontmatter, never stored.
+
 ## [0.14.0] - 2026-07-18 - The Harvest
 
 ### Added

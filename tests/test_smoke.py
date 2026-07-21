@@ -528,6 +528,60 @@ def test_link_graph_builds_nodes_edges_and_orphans(tmp_path):
     assert graph["stats"]["top_hubs"][0]["title"] in {"Hub", "Leaf"}
 
 
+def test_link_graph_typed_edges_and_lint(tmp_path):
+    """link_graph.py must parse the `relations:` typed-edge overlay (inline and
+    block list forms plus the legacy top-level `supersedes:` scalar), keep it
+    separate from degree (frontmatter links already count), and --lint must flag
+    unknown types, dangling targets, self-edges, contradiction cycles, and
+    missing inverses. This is the graph-engineering layer /obsidian-health uses."""
+    vault = tmp_path / "vault"
+    (vault / "wiki").mkdir(parents=True)
+    (vault / "wiki" / "ADR-007.md").write_text(
+        "---\ntype: adr\nrelations:\n"
+        "  supersedes: [\"[[ADR-006]]\"]\n"
+        "  depends_on:\n    - \"[[Tide Gateway]]\"\n"
+        "  frobnicates: [\"[[Tide Gateway]]\"]\n"
+        "  caused: [\"[[Ghost Note]]\"]\n"
+        "  relates_to: [\"[[ADR-007]]\"]\n"
+        "---\nBody links to [[Tide Gateway]].\n",
+        encoding="utf-8",
+    )
+    # Legacy top-level scalar; mutual supersedes with ADR-007 is a contradiction.
+    (vault / "wiki" / "ADR-006.md").write_text(
+        "---\ntype: adr\nsupersedes: \"[[ADR-007]]\"\n---\nOld decision.\n", encoding="utf-8"
+    )
+    (vault / "wiki" / "Tide Gateway.md").write_text(
+        "---\ntype: project\n---\nA project.\n", encoding="utf-8"
+    )
+
+    graph = json.loads(subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts/link_graph.py"), "--path", str(vault)],
+        capture_output=True, text=True, check=True,
+    ).stdout)
+    # Overlay is separate from connectivity: three honored typed edges, and the
+    # legacy scalar is read as a typed edge too.
+    assert graph["stats"]["typed_edge_count"] == 3
+    typed = {(e["from"].split("/")[-1], e["to"].split("/")[-1], e["type"]) for e in graph["typed_edges"]}
+    assert ("ADR-007.md", "ADR-006.md", "supersedes") in typed
+    assert ("ADR-007.md", "Tide Gateway.md", "depends_on") in typed
+    assert ("ADR-006.md", "ADR-007.md", "supersedes") in typed  # from the legacy scalar
+    # Degree is NOT doubled: it still reflects the frontmatter/body link scan only.
+    hub = next(n for n in graph["nodes"] if n["title"] == "ADR-007")
+    assert hub["degree"] == 3
+
+    lint = json.loads(subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts/link_graph.py"), "--path", str(vault), "--lint"],
+        capture_output=True, text=True, check=True,
+    ).stdout)
+    kinds = {(f["kind"], f["type"]) for f in lint["findings"]}
+    assert ("unknown_type", "frobnicates") in kinds
+    assert ("dangling_target", "caused") in kinds
+    assert ("self_edge", "relates_to") in kinds
+    assert lint["summary"]["critical"] >= 1  # ADR-006 <-> ADR-007 mutual supersedes
+    assert any(f["kind"] == "contradiction" for f in lint["findings"])
+    assert any(f["kind"] == "missing_inverse" for f in lint["findings"])
+
+
 def test_semantic_search_math_and_carveout(monkeypatch):
     """Semantic layer's stdlib math is correct without needing a model: cosine
     behaves, hybrid RRF lifts a note strong in BOTH rankings, and the privacy

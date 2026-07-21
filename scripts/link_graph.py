@@ -46,6 +46,34 @@ ALIAS_BLOCK_RE = re.compile(r"(?ms)^aliases:\s*\n((?:\s*-\s*.+\n?)+)")
 ALIAS_INLINE_RE = re.compile(r"(?m)^aliases:\s*\[(.+)\]")
 EM_DASH, EN_DASH = "\u2014", "\u2013"
 
+# Typed edges (graph engineering): the vault stores relationships as a named
+# `relations:` frontmatter block, so a link stops being a generic "related" and
+# becomes a traversable, interpretable edge (supersedes, depends_on, caused...).
+# Each type maps to its inverse so linting can flag a missing reciprocal edge;
+# a type whose inverse is itself is symmetric (relates_to, contradicts). The
+# legacy top-level `supersedes:` scalar (already read by the search rerank and
+# the ADR schema) is treated as an alias for `relations.supersedes`, so nothing
+# that already writes it has to change.
+EDGE_INVERSE = {
+    "supersedes": "superseded_by",
+    "superseded_by": "supersedes",
+    "depends_on": "required_by",
+    "required_by": "depends_on",
+    "caused": "caused_by",
+    "caused_by": "caused",
+    "decided_by": "decides",
+    "decides": "decided_by",
+    "relates_to": "relates_to",
+    "contradicts": "contradicts",
+}
+# Asymmetric ordering types: A->B and B->A of the SAME type is a logical
+# contradiction (A supersedes B while B supersedes A), not just a missing inverse.
+ASYMMETRIC_TYPES = {"supersedes", "superseded_by", "depends_on", "required_by",
+                    "caused", "caused_by", "decided_by", "decides"}
+LEGACY_EDGE_KEYS = {"supersedes", "superseded_by"}
+_REL_KEY_RE = re.compile(r"^(\s*)([A-Za-z_][A-Za-z0-9_]*):(.*)$")
+_WIKILINK_IN_RE = re.compile(r"\[\[([^\]|#]+)")
+
 
 def _norm(s: str) -> str:
     """Lowercase with em/en dashes unified to '-' - the matching key for a title.
@@ -91,6 +119,46 @@ def _link_target(link: str) -> str:
     return link
 
 
+def _parse_relations(fm: str) -> list[tuple[str, str]]:
+    """Pull (edge_type, target_title) pairs from a note's frontmatter.
+
+    Reads two shapes so authors are not boxed in, without a YAML dependency:
+      relations:
+        supersedes: ["[[ADR-006]]"]
+        depends_on:
+          - "[[Projects/Tide Gateway]]"
+    plus the legacy top-level scalar `supersedes: "[[...]]"` (equivalent to
+    relations.supersedes). We only harvest the type name and the `[[targets]]`;
+    quoting and list style are irrelevant. Types are NOT validated here - an
+    unknown type is still returned so the linter can flag it by name."""
+    pairs: list[tuple[str, str]] = []
+    in_block = False
+    current_type: str | None = None
+    for line in fm.splitlines():
+        if not line.strip():
+            continue
+        m = _REL_KEY_RE.match(line)
+        if not in_block:
+            if m and not m.group(1) and m.group(2) in LEGACY_EDGE_KEYS:
+                pairs += [(m.group(2), t.strip()) for t in _WIKILINK_IN_RE.findall(m.group(3))]
+            elif m and not m.group(1) and m.group(2) == "relations" and not m.group(3).strip():
+                in_block, current_type = True, None
+            continue
+        # inside the relations block; a return to column 0 ends it
+        if line[:1] not in (" ", "\t"):
+            in_block = False
+            if m and m.group(2) in LEGACY_EDGE_KEYS:
+                pairs += [(m.group(2), t.strip()) for t in _WIKILINK_IN_RE.findall(m.group(3))]
+            continue
+        if line.lstrip().startswith("-"):
+            if current_type:
+                pairs += [(current_type, t.strip()) for t in _WIKILINK_IN_RE.findall(line)]
+        elif m:
+            current_type = m.group(2)
+            pairs += [(current_type, t.strip()) for t in _WIKILINK_IN_RE.findall(m.group(3))]
+    return pairs
+
+
 def build_graph(vault: Path, scope: str | None = None) -> dict:
     notes: dict[str, dict] = {}
     key_to_rel: dict[str, str] = {}
@@ -116,6 +184,7 @@ def build_graph(vault: Path, scope: str | None = None) -> dict:
             "folder": parts[0] if len(parts) > 1 else "",
             "content": _strip_code(text),
             "aliases": _aliases(fm),
+            "relations": _parse_relations(fm),
         }
         notes[rel] = note
         key_to_rel.setdefault(_norm(md.stem), rel)
@@ -168,9 +237,41 @@ def build_graph(vault: Path, scope: str | None = None) -> dict:
             if target == rel or target in seen:
                 continue
             seen.add(target)
-            edges.append({"from": rel, "to": target})
+            edges.append({"from": rel, "to": target, "type": "link"})
             outdeg[rel] += 1
             indeg[target] += 1
+
+    # Typed edges from `relations:` frontmatter: a semantic OVERLAY on the link
+    # graph, not new connectivity. The underlying `[[target]]` already lives in
+    # the frontmatter (which is part of content), so the body-link scan above
+    # has already counted it toward degree - re-counting here would double it.
+    # We only attach the edge's *type* and keep unhonored edges (unknown type,
+    # unresolved target) for the linter instead of dropping them silently.
+    typed_edges: list[dict] = []
+    typed_problems: list[dict] = []
+    for rel, note in notes.items():
+        if rel.rsplit("/", 1)[-1] == "_CLAUDE.md":
+            continue
+        seen_typed: set[tuple[str, str]] = set()
+        for etype, raw_target in note["relations"]:
+            if etype not in EDGE_INVERSE:
+                typed_problems.append({"note": rel, "type": etype, "target": raw_target,
+                                       "problem": "unknown_type"})
+                continue
+            target = _resolve(raw_target)
+            if target is None:
+                typed_problems.append({"note": rel, "type": etype, "target": raw_target,
+                                       "problem": "dangling_target"})
+                continue
+            if target == rel:
+                typed_problems.append({"note": rel, "type": etype, "target": raw_target,
+                                       "problem": "self_edge"})
+                continue
+            key = (etype, target)
+            if key in seen_typed:
+                continue
+            seen_typed.add(key)
+            typed_edges.append({"from": rel, "to": target, "type": etype})
 
     nodes = []
     for rel, note in notes.items():
@@ -200,15 +301,20 @@ def build_graph(vault: Path, scope: str | None = None) -> dict:
             keep |= second
         nodes = [n for n in nodes if n["id"] in keep]
         edges = [e for e in edges if e["from"] in keep and e["to"] in keep]
+        typed_edges = [e for e in typed_edges if e["from"] in keep and e["to"] in keep]
+        typed_problems = [p for p in typed_problems if p["note"] in keep]
 
     ranked = sorted(nodes, key=lambda n: n["degree"], reverse=True)
     orphans = [n["path"] for n in nodes if n["degree"] == 0]
     return {
         "nodes": nodes,
         "edges": edges,
+        "typed_edges": typed_edges,
+        "typed_edge_problems": typed_problems,
         "stats": {
             "node_count": len(nodes),
             "edge_count": len(edges),
+            "typed_edge_count": len(typed_edges),
             "orphan_count": len(orphans),
             "dangling_link_count": dangling,
             "top_hubs": [{"path": n["path"], "title": n["title"], "degree": n["degree"]} for n in ranked[:10]],
@@ -218,11 +324,62 @@ def build_graph(vault: Path, scope: str | None = None) -> dict:
     }
 
 
+def lint_graph(graph: dict) -> dict:
+    """Validate the typed-edge layer - the graph-linting step your notes graph
+    otherwise never gets. Findings, most severe first:
+      - contradiction (critical): A and B assert the SAME asymmetric type about
+        each other (A supersedes B and B supersedes A).
+      - unknown_type / dangling_target / self_edge (warning): a `relations:` edge
+        the graph could not honor. Carried through from build_graph.
+      - missing_inverse (info): A->B of a type whose reciprocal edge B->A is
+        absent. Not wrong, but a one-directional edge is invisible from B."""
+    findings: list[dict] = []
+    typed = graph.get("typed_edges", [])
+    present = {(e["from"], e["to"], e["type"]) for e in typed}
+
+    for f, t, etype in sorted(present):
+        inv = EDGE_INVERSE.get(etype)
+        if etype in ASYMMETRIC_TYPES and (t, f, etype) in present:
+            if f < t:  # report each contradicting pair once
+                findings.append({
+                    "severity": "critical", "kind": "contradiction",
+                    "note": f, "target": t, "type": etype,
+                    "detail": f"{f} and {t} both claim `{etype}` about each other",
+                })
+        if inv and (t, f, inv) not in present:
+            findings.append({
+                "severity": "info", "kind": "missing_inverse",
+                "note": f, "target": t, "type": etype,
+                "detail": f"{t} has no `{inv}` edge back to {f}",
+            })
+
+    for p in graph.get("typed_edge_problems", []):
+        findings.append({
+            "severity": "warning", "kind": p["problem"],
+            "note": p["note"], "target": p["target"], "type": p["type"],
+            "detail": {
+                "unknown_type": f"`{p['type']}` is not a known relation type",
+                "dangling_target": f"`{p['type']}` points at `{p['target']}` which does not resolve",
+                "self_edge": f"`{p['type']}` points at the note itself",
+            }.get(p["problem"], p["problem"]),
+        })
+
+    order = {"critical": 0, "warning": 1, "info": 2}
+    findings.sort(key=lambda x: order.get(x["severity"], 9))
+    summary = {"critical": 0, "warning": 0, "info": 0}
+    for f in findings:
+        summary[f["severity"]] = summary.get(f["severity"], 0) + 1
+    return {"findings": findings, "summary": summary,
+            "typed_edge_count": len(typed), "known_types": sorted(EDGE_INVERSE)}
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="Extract the vault link graph as JSON")
     ap.add_argument("--path", required=True, help="Vault root")
     ap.add_argument("--scope", default=None, help="Center on one note title (2 hops); omit for full vault")
     ap.add_argument("--json", action="store_true", help="(default) emit JSON")
+    ap.add_argument("--lint", action="store_true",
+                    help="Emit typed-edge lint findings instead of the full graph")
     args = ap.parse_args(argv[1:])
 
     vault = Path(args.path).expanduser().resolve()
@@ -230,7 +387,8 @@ def main(argv: list[str]) -> int:
         print(f"vault path does not exist: {vault}", file=sys.stderr)
         return 2
     graph = build_graph(vault, args.scope)
-    print(json.dumps(graph, ensure_ascii=False, indent=2))
+    out = lint_graph(graph) if args.lint else graph
+    print(json.dumps(out, ensure_ascii=False, indent=2))
     return 0
 
 
