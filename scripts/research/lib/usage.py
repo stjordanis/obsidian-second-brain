@@ -12,7 +12,7 @@ from .config import USAGE_LOG
 
 # Pricing per 1M tokens (as of 2026-04, https://docs.x.ai/docs/models)
 #
-# STALE — do not trust for models not listed here. GET https://api.x.ai/v1/models now
+# STALE - do not trust for models not listed here. GET https://api.x.ai/v1/models now
 # returns authoritative per-token pricing (prompt_text_token_price /
 # completion_text_token_price), and it disagrees with this table: grok-4.3 reports a
 # 2:1 completion:prompt ratio, not the 5:1 assumed below. Unknown models fall back to

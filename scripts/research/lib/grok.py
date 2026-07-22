@@ -1,7 +1,7 @@
 """xAI Grok client. Uses the Agent Tools API at /v1/responses.
 
 Live Search (`search_parameters` on /v1/chat/completions) was deprecated by xAI and
-now returns HTTP 410 — do not reintroduce it. Live X/web access comes from the
+now returns HTTP 410 - do not reintroduce it. Live X/web access comes from the
 `tools` argument below instead.
 """
 
