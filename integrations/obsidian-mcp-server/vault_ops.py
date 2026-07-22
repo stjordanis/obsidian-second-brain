@@ -51,6 +51,43 @@ _STOPWORDS = frozenset(
     "then so if not no yes all any some more most other into out up down off again".split()
 )
 
+# CJK ideographs and kana/hangul are all Python `\w`, so `\W+` never splits a
+# Chinese/Japanese/Korean phrase and the English `len > 2` noise filter then
+# discards the result - a 2-char CJK word is a full word, not noise (issue #159).
+# Match CJK runs explicitly so they can be indexed as overlapping character
+# bigrams (unigram when the run is a single char) instead of being dropped.
+_CJK_RE = re.compile(
+    r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af\uff66-\uff9d]+"
+)
+
+
+def _query_terms(query: str, *, drop_stopwords: bool = True) -> List[str]:
+    """Split a query into search terms, CJK-aware.
+
+    Latin/ASCII tokens keep the English rule (len > 2, minus stopwords) - two
+    letters there is noise. CJK runs are indexed as overlapping character bigrams
+    (`知識管理` -> 知識, 識管, 管理), with a lone character kept as a unigram, so a
+    2-char word like 系統 survives and a reordered phrase still overlaps. Order is
+    preserved and duplicates removed so scoring is stable."""
+    q = query.lower()
+    terms: List[str] = []
+    for run in _CJK_RE.findall(q):
+        if len(run) == 1:
+            terms.append(run)
+        else:
+            terms.extend(run[i:i + 2] for i in range(len(run) - 1))
+    non_cjk = _CJK_RE.sub(" ", q)
+    for t in re.split(r"\W+", non_cjk):
+        if len(t) > 2 and (not drop_stopwords or t not in _STOPWORDS):
+            terms.append(t)
+    seen: set = set()
+    out: List[str] = []
+    for t in terms:
+        if t and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out
+
 _SEARCH_DEWEIGHT_PREFIXES = ("raw/",)
 _SEARCH_DEWEIGHT_FILES = {"log.md"}
 # Tunable so retrieval changes can be A/B-measured (set to 1.0 to disable the penalty).
@@ -208,11 +245,43 @@ _SNIPPET_CHARS = 320
 _READ_CAP = 20_000
 
 
+# Documented config home (architecture.md, .env.example, CONTRIBUTING.md). The
+# research toolkit loads it via python-dotenv, but this module is pure stdlib and
+# the MCP server runs under `uv run --with mcp` (no python-dotenv installed), so
+# we parse the one key we need by hand. Override the path in tests via
+# OBSIDIAN_ENV_FILE. (Fixes #160 - same root cause as #124, different code path.)
+_ENV_FILE = Path.home() / ".config" / "obsidian-second-brain" / ".env"
+
+
+def _env_from_file(name: str) -> str:
+    """Read a single `KEY=value` from the config .env. Environment always wins;
+    this is only consulted as a fallback. A missing or malformed file yields ""."""
+    path = Path(os.environ.get("OBSIDIAN_ENV_FILE") or _ENV_FILE).expanduser()
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, val = line.split("=", 1)
+            if key.strip() == name:
+                return val.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return ""
+
+
 def resolve_vault() -> Path:
-    """Return the configured vault dir, or raise with a clear message."""
-    raw = os.environ.get(_VAULT_ENV, "").strip()
+    """Return the configured vault dir, or raise with a clear message.
+
+    Reads OBSIDIAN_VAULT_PATH from the environment first, then falls back to
+    ~/.config/obsidian-second-brain/.env - the location architecture.md documents.
+    Before #160 only the environment was checked, so plugin-marketplace installs
+    that configured the vault in .env got a non-functional MCP server."""
+    raw = os.environ.get(_VAULT_ENV, "").strip() or _env_from_file(_VAULT_ENV)
     if not raw:
-        raise RuntimeError(f"{_VAULT_ENV} is not set")
+        raise RuntimeError(
+            f"{_VAULT_ENV} is not set (checked the environment and {_ENV_FILE})"
+        )
     vault = Path(raw).expanduser().resolve()
     if not vault.is_dir():
         raise RuntimeError(f"vault path does not exist: {vault}")
@@ -337,11 +406,12 @@ def search(query: str, *, limit: int = 6, semantic: Optional[bool] = None) -> Li
     a genuinely pure lexical ranking - before this switch existed, "--mode lexical"
     silently measured the fused blend under a false label (stress-test fix 10/24)."""
     vault = resolve_vault()
-    terms = [t for t in re.split(r"\W+", query.lower()) if len(t) > 2 and t not in _STOPWORDS]
+    terms = _query_terms(query)
     if not terms:
         # Query was all stopwords/short tokens - fall back to the raw terms so a
-        # search like "the who" still returns something rather than nothing.
-        terms = [t for t in re.split(r"\W+", query.lower()) if len(t) > 2]
+        # search like "the who" still returns something rather than nothing. (CJK
+        # is already fully captured above, so this only relaxes the English side.)
+        terms = _query_terms(query, drop_stopwords=False)
     if not terms:
         return []
     current_intent = bool(_CURRENT_INTENT & {t.lower() for t in re.split(r"\W+", query)})

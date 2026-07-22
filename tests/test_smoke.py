@@ -499,6 +499,65 @@ def test_mcp_vault_ops_search_ranks_title_over_noise(tmp_path, monkeypatch):
     )
 
 
+def test_mcp_vault_ops_search_finds_cjk_words(tmp_path, monkeypatch):
+    """Regression for #159: a 2-character CJK word must be findable. The old
+    `len(t) > 2` term filter (calibrated for English noise words) discarded most
+    Chinese/Japanese/Korean queries, since \\W+ never splits CJK and 2 chars is a
+    full CJK word. The CJK-aware tokenizer indexes character bigrams instead."""
+    vault_ops = _load_vault_ops()
+    vault = tmp_path / "vault"
+    (vault / "wiki").mkdir(parents=True)
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(vault))
+
+    (vault / "wiki" / "系統設計.md").write_text(
+        "---\ntype: concept\n---\n系統架構與資料流的設計筆記。\n", encoding="utf-8"
+    )
+    (vault / "wiki" / "Unrelated.md").write_text(
+        "---\ntype: note\n---\nEnglish only, nothing relevant here.\n", encoding="utf-8"
+    )
+
+    # 2-char word that used to return zero results.
+    hits = vault_ops.search("系統", limit=5, semantic=False)
+    assert any(h["path"] == "wiki/系統設計.md" for h in hits), (
+        "2-char CJK query must find the note: " + ", ".join(h["path"] for h in hits)
+    )
+    # A longer phrase whose bigrams overlap the content also matches.
+    hits2 = vault_ops.search("資料設計", limit=5, semantic=False)
+    assert any(h["path"] == "wiki/系統設計.md" for h in hits2)
+    # English side unchanged: 2-letter tokens are still noise.
+    assert vault_ops._query_terms("is an ok system") == ["system"]
+
+
+def test_mcp_vault_ops_resolves_vault_from_env_file(tmp_path, monkeypatch):
+    """Regression for #160: when OBSIDIAN_VAULT_PATH is absent from the environment,
+    resolve_vault must fall back to ~/.config/obsidian-second-brain/.env (overridable
+    via OBSIDIAN_ENV_FILE), the location architecture.md documents. Before the fix the
+    MCP server read only os.environ, so plugin installs configured via .env failed."""
+    vault_ops = _load_vault_ops()
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    env_file = tmp_path / "config.env"
+    env_file.write_text(
+        f'# config\nOBSIDIAN_VAULT_PATH="{vault}"\nPERPLEXITY_API_KEY=irrelevant\n',
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("OBSIDIAN_VAULT_PATH", raising=False)
+    monkeypatch.setenv("OBSIDIAN_ENV_FILE", str(env_file))
+    assert vault_ops.resolve_vault() == vault.resolve()
+
+    # Environment still wins over the file when both are present.
+    other = tmp_path / "other"
+    other.mkdir()
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(other))
+    assert vault_ops.resolve_vault() == other.resolve()
+
+    # Neither source set -> a clear error that names both places checked.
+    monkeypatch.delenv("OBSIDIAN_VAULT_PATH", raising=False)
+    monkeypatch.setenv("OBSIDIAN_ENV_FILE", str(tmp_path / "missing.env"))
+    with pytest.raises(RuntimeError, match="not set"):
+        vault_ops.resolve_vault()
+
+
 def test_link_graph_builds_nodes_edges_and_orphans(tmp_path):
     """link_graph.py must resolve [[wikilinks]] to real notes, count degree, flag
     orphans, and report dangling links - the data /obsidian-visualize relies on."""
