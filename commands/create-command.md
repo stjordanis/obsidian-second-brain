@@ -104,7 +104,7 @@ Ask via AskUserQuestion (multi-select):
 
 > "Does this command call any external APIs?"
 > - Perplexity Sonar (web research)
-> - xAI Grok (X posts, Live Search)
+> - xAI Grok (X posts, x_search tool)
 > - YouTube Data API
 > - Other (free text)
 > - None - purely operates on the vault and conversation

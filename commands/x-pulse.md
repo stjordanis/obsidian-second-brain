@@ -1,5 +1,5 @@
 ---
-description: Scan X for what's trending in a topic - themes, voices, hooks, and post ideas powered by Grok + Live Search
+description: Scan X for what's trending in a topic - themes, voices, hooks, and post ideas powered by Grok x_search
 category: research
 triggers_en: ["x pulse", "what is trending on twitter", "scan x for", "twitter pulse"]
 triggers_es: ["x pulse", "qué es tendencia en twitter", "escanea x en busca de", "pulso de twitter"]
