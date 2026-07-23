@@ -31,6 +31,7 @@ import fnmatch
 import json
 import re
 import sys
+import unicodedata
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
@@ -192,8 +193,8 @@ def index_vault_files(vault: Path, excludes=None) -> set:
             continue
         if not f.is_file():
             continue
-        files.add(f.relative_to(vault).as_posix().lower())
-        files.add(f.name.lower())
+        files.add(_nfc(f.relative_to(vault).as_posix()).lower())
+        files.add(_nfc(f.name).lower())
     return files
 
 
@@ -313,7 +314,7 @@ def check_orphans(notes: dict) -> list:
     link_sources: dict[str, set] = defaultdict(set)
     for src_rel, note in notes.items():
         for link in note["links"]:
-            lk = link.lower()
+            lk = _nfc(link).lower()
             # An incoming link may carry the .md extension ([[note.md]]); it still
             # targets the same note, so strip it before matching against stems.
             if lk.endswith(".md"):
@@ -334,9 +335,11 @@ def check_orphans(notes: dict) -> list:
             continue
         if rel in ("Home.md", "_CLAUDE.md"):
             continue
-        stem_lower = note["stem"].lower()
+        stem_lower = _nfc(note["stem"]).lower()
         stem_norm = stem_lower.replace("-", " ").replace("_", " ")
-        linked = _has_incoming(rel, {stem_lower, stem_norm, *note["aliases"]})
+        linked = _has_incoming(
+            rel, {stem_lower, stem_norm, *(_nfc(a) for a in note["aliases"])}
+        )
         if not linked:
             issues.append({
                 "type": "orphan",
@@ -478,6 +481,19 @@ def replace_outside_code(text: str, old: str, new: str) -> tuple[str, int]:
     return "".join(out), total
 
 
+def _nfc(s: str) -> str:
+    """Canonical (NFC) form of a string, for link/stem/alias comparison only.
+
+    Filenames and note content can disagree on Unicode composition: a decomposed
+    filename ("Gru" + U+0308 + "ndung.md") and a composed wikilink ("[[Grundung]]"
+    with U+00FC) are the same title to a human and to the filesystem, but not to a
+    plain string compare. Normalizing both sides at the comparison boundary keeps
+    accented titles from being reported as wanted notes or orphans. NFC (not NFKC):
+    only canonical equivalence, never compatibility folding.
+    """
+    return unicodedata.normalize("NFC", s)
+
+
 def _normalize_dashes(s: str) -> str:
     """Convert em-dash (U+2014) and en-dash (U+2013) to a regular hyphen.
 
@@ -495,20 +511,21 @@ def check_wanted_notes(notes: dict, vault: Path, excludes=None) -> list:
     (or instead of) writing its note. They are a demand-ranked wishlist of notes
     worth writing, so they are reported as info, not warnings. Named after
     MediaWiki's "Wanted pages"."""
-    all_stems = {note["stem"].lower(): rel for rel, note in notes.items()}
+    all_stems = {_nfc(note["stem"]).lower(): rel for rel, note in notes.items()}
     # Full-file index so links to non-markdown assets and links written with an
     # explicit extension resolve instead of being flagged broken.
     all_files = index_vault_files(vault, excludes)
     # also index stems with em-dashes normalized to regular hyphens so a
     # wikilink written with `-` still matches a filename written with `-`
     all_stems_dash_norm = {
-        _normalize_dashes(note["stem"]).lower(): rel for rel, note in notes.items()
+        _normalize_dashes(_nfc(note["stem"])).lower(): rel
+        for rel, note in notes.items()
     }
     # build alias → rel lookup so [[Full Name]] resolves if the note has that alias
     all_aliases: dict[str, str] = {}
     for rel, note in notes.items():
         for alias in note["aliases"]:
-            all_aliases[alias.lower()] = rel
+            all_aliases[_nfc(alias).lower()] = rel
 
     # Some notes echo links without owning them: operating manuals show example
     # wikilinks as syntax demonstrations, and activity logs / prior health
@@ -536,7 +553,7 @@ def check_wanted_notes(notes: dict, vault: Path, excludes=None) -> list:
             link_name = link.rsplit("/", 1)[-1]
             if link_name.lower().endswith(".md"):
                 link_name = link_name[:-3]
-            link_stem = link_name.lower()
+            link_stem = _nfc(link_name).lower()
             link_norm = link_stem.replace("-", " ").replace("_", " ")
             link_dash_norm = _normalize_dashes(link_stem)
             resolved = (
@@ -545,8 +562,8 @@ def check_wanted_notes(notes: dict, vault: Path, excludes=None) -> list:
                 or link_stem in all_aliases
                 or link_norm in all_aliases
                 or link_dash_norm in all_stems_dash_norm
-                or link.lower() in all_files
-                or f"{link.lower()}.md" in all_files
+                or _nfc(link).lower() in all_files
+                or f"{_nfc(link).lower()}.md" in all_files
             )
             if not resolved:
                 potential_folder = vault / link
