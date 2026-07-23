@@ -587,6 +587,37 @@ def test_link_graph_builds_nodes_edges_and_orphans(tmp_path):
     assert graph["stats"]["top_hubs"][0]["title"] in {"Hub", "Leaf"}
 
 
+def test_link_graph_resolves_unicode_composition(tmp_path):
+    """Companion to PR #161: link_graph must resolve an NFC/NFD title mismatch the
+    same way vault_health does. link_graph imports vault_health's (now NFC) file
+    index and its docstring promises identical link rules - without matching NFC in
+    its own _norm, /obsidian-visualize would still show the phantom orphan + dangling
+    link that /obsidian-health just stopped showing. Byte forms are explicit so the
+    test means the same on Linux CI as on macOS."""
+    vault = tmp_path / "vault"
+    (vault / "wiki").mkdir(parents=True)
+    nfc = "Gr\u00fcndung"      # composed: single U+00FC
+    nfd = "Gru\u0308ndung"     # decomposed: u + U+0308 (macOS filename form)
+    # Filename decomposed, link composed - the common macOS case.
+    (vault / "wiki" / f"{nfd}.md").write_text(
+        "---\ntype: note\n---\nContent.\n", encoding="utf-8"
+    )
+    (vault / "wiki" / "Hub.md").write_text(
+        f"---\ntype: project\n---\nSee [[{nfc}]] for background.\n", encoding="utf-8"
+    )
+    graph = json.loads(subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts/link_graph.py"), "--path", str(vault)],
+        capture_output=True, text=True, check=True,
+    ).stdout)
+    assert graph["stats"]["dangling_link_count"] == 0, (
+        "a composed link to a decomposed filename must resolve, not dangle"
+    )
+    assert graph["stats"]["orphan_count"] == 0, (
+        "neither note may be reported as a phantom orphan"
+    )
+    assert graph["stats"]["edge_count"] == 1
+
+
 def test_link_graph_typed_edges_and_lint(tmp_path):
     """link_graph.py must parse the `relations:` typed-edge overlay (inline and
     block list forms plus the legacy top-level `supersedes:` scalar), keep it

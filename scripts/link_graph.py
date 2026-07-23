@@ -27,6 +27,7 @@ import argparse
 import json
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 # Shared with the health check so the two tools cannot drift apart again.
@@ -75,14 +76,23 @@ _REL_KEY_RE = re.compile(r"^(\s*)([A-Za-z_][A-Za-z0-9_]*):(.*)$")
 _WIKILINK_IN_RE = re.compile(r"\[\[([^\]|#]+)")
 
 
+def _nfc(s: str) -> str:
+    """Canonical (NFC) Unicode form - the comparison-boundary normalization that
+    keeps an NFD filename (macOS stores decomposed) and an NFC wikilink (composed,
+    as typed) from being read as two different titles. Mirrors vault_health._nfc so
+    the graph resolves links exactly as the health check does (PR #161)."""
+    return unicodedata.normalize("NFC", s)
+
+
 def _norm(s: str) -> str:
     """Lowercase with em/en dashes unified to '-' - the matching key for a title.
 
-    Spaces, hyphens and underscores are deliberately NOT flattened together:
-    Obsidian does not resolve [[Foo Bar Baz]] to foo-bar-baz.md, and flattening
-    them created phantom edges while hiding real broken links (341 of them on
-    the audit's 3,000-note fixture)."""
-    s = s.replace(EM_DASH, "-").replace(EN_DASH, "-")
+    Normalized to NFC first so accented titles resolve regardless of composition
+    (see _nfc). Spaces, hyphens and underscores are deliberately NOT flattened
+    together: Obsidian does not resolve [[Foo Bar Baz]] to foo-bar-baz.md, and
+    flattening them created phantom edges while hiding real broken links (341 of
+    them on the audit's 3,000-note fixture)."""
+    s = _nfc(s).replace(EM_DASH, "-").replace(EN_DASH, "-")
     return re.sub(r"\s+", " ", s.strip().lower())
 
 
@@ -200,8 +210,8 @@ def build_graph(vault: Path, scope: str | None = None) -> dict:
         dparts = d.relative_to(vault).parts
         if _skipped(dparts):
             continue
-        vault_dirs.add(d.relative_to(vault).as_posix().lower())
-        vault_dirs.add(d.name.lower())
+        vault_dirs.add(_nfc(d.relative_to(vault).as_posix()).lower())
+        vault_dirs.add(_nfc(d.name).lower())
 
     def _resolve(raw: str) -> str | None:
         body = raw.split("|", 1)[0].split("#", 1)[0].strip().rstrip("\\")
@@ -229,7 +239,7 @@ def build_graph(vault: Path, scope: str | None = None) -> dict:
             target = _resolve(raw)
             if target is None:
                 body = raw.split("|", 1)[0].split("#", 1)[0].strip().rstrip("\\")
-                key = body.lower().rstrip("/")
+                key = _nfc(body).lower().rstrip("/")
                 if key in vault_files or key in vault_dirs:
                     continue  # a real asset or folder-nav link, not a broken note link
                 dangling += 1
